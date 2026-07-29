@@ -122,7 +122,7 @@
 							<td>
 								<details>
 									<summary style="cursor: pointer;">{{ user }}</summary>
-									<ul class="is-size-7 has-text-grey" style="margin-top: 4px; margin-left: 15px;">
+									<ul class="is-size-7" style="margin-top: 4px; margin-left: 15px;">
 										{% for entry in songs_by_singer.get(user, []) %}
 										<li>{{ entry.display_name }}{% if entry.count > 1 %} &times;{{ entry.count }}{% endif %}</li>
 										{% endfor %}

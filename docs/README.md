@@ -17,8 +17,26 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 
 [![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-green.svg)](https://conventionalcommits.org)
 
+## About This Fork
+
+This is a personal fork of [vicwomg/pikaraoke](https://github.com/vicwomg/pikaraoke), all credit for the original project goes to its creator and contributors. My friends and I have spent more late nights than we can count singing on this thing, and over time it's grown a pile of custom features built for how we actually use it at our parties. Sharing them here in case they're useful to anyone else running PiKaraoke for their own crew.
+
+### Custom features & improvements
+
+- **Public player controls** — Play, pause, transpose, and volume no longer require the admin password, so anyone at the party can help run the show. Skip stays admin-only, since letting anyone cut off a performer felt like a step too far.
+- **Color themes** — Two original themes (Dark "Neon Tiki" and Light "Daylight Lounge"), plus a "Classic" option that restores the original look, all selectable from the admin panel with a custom font.
+- **Custom logo upload** — Admins can upload their own logo image right from the admin panel, no file editing required.
+- **Lifetime song stats** — PiKaraoke now remembers how many times every song has ever been played, viewable sorted by popularity in the Library page (formerly "Browse"), which also spotlights the 3 most-played songs up top for quick access.
+- **Tonight's Recap** — A live page showing the current (or most recent) karaoke session: total songs sung, who showed up, an MVP singer, the most-played songs, and a click-to-expand list of exactly what each singer sang. Admins can name sessions (e.g. "John's Birthday") and browse a full history of past sessions from the admin panel.
+- **Active Singers sidebar** — See at a glance who currently has a song queued up, including whoever's performing right now.
+- **Per-user queue limit** — Defaults to 5 songs per person (including whatever's currently playing), so one enthusiastic guest can't monopolize the whole night. Adjustable by admins.
+- **Audit log** — The admin panel logs who queued, paused, skipped, transposed, changed volume, or downloaded a song, so it's easy to see what's been happening.
+- **Friendlier bot protection** — An invisible trap link and a simple "you need to give a name" requirement keep bots from spamming the queue, without resorting to CAPTCHAs or IP-based rate limits (which would unfairly penalize a room full of guests sharing one WiFi network).
+- **Site-wide name prompt** — Everyone's asked for a display name on their first visit to any page, not just when searching, so the audit log and recap stats aren't full of "Anonymous."
+
 ## Table of Contents
 
+- [About This Fork](#about-this-fork)
 - [Supported Devices / OS / Platforms](#supported-devices--os--platforms)
 - [Quick Install](#quick-install)
 - [Manual Installation](#manual-installation)
