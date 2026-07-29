@@ -183,3 +183,13 @@ def get_data_directory() -> str:
 def is_running_in_docker():
     """Check if we're running in a container using existence of /.dockerenv."""
     return os.path.exists("/.dockerenv")
+
+
+def get_custom_logo_path() -> str:
+    """Get the path where an admin-uploaded custom logo is stored, if any.
+
+    Returns:
+        Path to the custom logo file. The file may not exist if no logo
+        has been uploaded.
+    """
+    return os.path.join(get_data_directory(), "custom_logo.png")

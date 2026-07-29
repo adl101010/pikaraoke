@@ -288,6 +288,7 @@ def test_preference_manager_defaults_exist():
         "enable_title_tidy",
         "metadata_provider",
         "itunes_search_country",
+        "theme",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys
@@ -326,6 +327,7 @@ def test_preference_manager_defaults_types():
     assert isinstance(defaults["mid_score_phrases"], str)
     assert isinstance(defaults["high_score_phrases"], str)
     assert isinstance(defaults["itunes_search_country"], str)
+    assert isinstance(defaults["theme"], str)
 
 
 def test_preference_manager_get_or_default_returns_default(temp_config_file):

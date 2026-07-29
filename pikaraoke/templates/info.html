@@ -506,6 +506,58 @@
 			<hr class="my-0">
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Logo section of preferences #}{% trans %}Logo{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey mb-2">
+						{# MSG: Help text explaining where the logo appears and what format it must be. #}
+						{% trans %}Shown on the splash screen and screensaver. PNG only, 5MB max.{% endtrans %}
+					</p>
+					<img src="{{ url_for('images.logo') }}?v={{ logo_version }}" alt="{{ _('Current logo') }}" style="max-width: 240px; max-height: 120px; display: block; margin-bottom: 12px;" />
+					<form action="{{ url_for('images.upload_logo') }}" method="post" enctype="multipart/form-data" class="mb-2">
+						<div class="field has-addons">
+							<div class="control is-expanded">
+								<input type="file" name="logo" accept="image/png" class="input" required />
+							</div>
+							<div class="control">
+								{# MSG: Button to submit a new logo image #}
+								<button type="submit" class="button is-primary">{% trans %}Upload{% endtrans %}</button>
+							</div>
+						</div>
+					</form>
+					{% if is_custom_logo %}
+					{# MSG: Link to revert to PiKaraoke's built-in default logo #}
+					<a class="button is-danger is-outlined is-small" href="{{ url_for('images.reset_logo') }}">{% trans %}Reset to default logo{% endtrans %}</a>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Appearance section of preferences #}{% trans %}Appearance{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<div class="user-preference-container is-align-items-center">
+						<div class="select">
+							<select id="pref-theme" class="user-preference-input" data-pref="theme" data-start-value="{{ theme }}">
+								<option value="dark" {% if theme == "dark" %}selected{% endif %}>{% trans %}Dark (Neon Tiki){% endtrans %}</option>
+								<option value="light" {% if theme == "light" %}selected{% endif %}>{% trans %}Light (Daylight Lounge){% endtrans %}</option>
+							</select>
+						</div>
+						<label class="label" for="pref-theme">
+							{# MSG: Label for the site-wide color theme dropdown. Changing it affects every visitor, not just the admin. #}
+							{% trans %}Color theme (applies to everyone, updates live){% endtrans %}
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 				{# MSG: Title text for the Score Phrases section of preferences #}
 				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>

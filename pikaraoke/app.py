@@ -150,11 +150,19 @@ def get_locale() -> str | None:
 
 @app.context_processor
 def inject_path_config() -> dict[str, str]:
-    """Expose path-prefix settings to templates."""
+    """Expose path-prefix settings and the site-wide theme to templates."""
+    try:
+        k = get_karaoke_instance()
+        theme = k.preferences.get_or_default("theme")
+    except (RuntimeError, KeyError, AttributeError):
+        # App context not available or karaoke instance not initialized yet
+        theme = "dark"
+
     return {
         "base_path": app.config["PIKARAOKE_BASE_PATH"],
         "socketio_path": app.config["PIKARAOKE_SOCKETIO_PATH"],
         "cookie_path": app.config["SESSION_COOKIE_PATH"],
+        "theme": theme,
     }
 
 

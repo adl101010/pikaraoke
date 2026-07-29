@@ -21,6 +21,7 @@ from pikaraoke.lib.ffmpeg import (
     supports_hardware_h264_encoding,
 )
 from pikaraoke.lib.get_platform import (
+    get_custom_logo_path,
     get_data_directory,
     get_os_version,
     get_platform,
@@ -197,7 +198,12 @@ class Karaoke:
         self.log_level = log_level
         self.youtubedl_proxy = youtubedl_proxy
         self.additional_ytdl_args = additional_ytdl_args
-        self.logo_path = self.default_logo_path if logo_path is None else logo_path
+        if logo_path is not None:
+            self.logo_path = logo_path
+        elif os.path.isfile(get_custom_logo_path()):
+            self.logo_path = get_custom_logo_path()
+        else:
+            self.logo_path = self.default_logo_path
         self.prefer_hostname = prefer_hostname
         self.bg_music_path = self.default_bg_music_path if bg_music_path is None else bg_music_path
         self.bg_video_path = self.default_bg_video_path if bg_video_path is None else bg_video_path

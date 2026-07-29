@@ -1,5 +1,7 @@
 """System information and settings page route."""
 
+import os
+
 import flask_babel
 import psutil
 from flask import jsonify, render_template
@@ -85,6 +87,8 @@ def info():
         },
         mic_available=k.sound_manager.available,
         mic_passthrough_enabled=k.enable_mic_passthrough,
+        is_custom_logo=k.logo_path != k.default_logo_path,
+        logo_version=int(os.path.getmtime(k.logo_path)),
     )
 
 

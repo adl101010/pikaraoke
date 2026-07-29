@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html data-theme="dark">
+<html data-theme="{{ theme }}">
 
 <head>
   {% if title %}
@@ -10,16 +10,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script type=text/javascript src="{{  url_for('static', filename='jquery-3.7.1.min.js') }}"></script>
   <script src="{{  url_for('static', filename='js.cookie-3.0.5.min.js') }}"></script>
-  <script>
-    // Applied before any CSS loads so there's no flash of the wrong theme.
-    // No cookie yet means a first-time visitor, who defaults to dark.
-    (function () {
-      var theme = Cookies.get("theme");
-      if (theme === "light") {
-        document.documentElement.setAttribute("data-theme", "light");
-      }
-    })();
-  </script>
   <script src="{{  url_for('static', filename='socket.io-4.8.3.min.js') }}"></script>
   <script src="{{  url_for('static', filename='spa-navigation.js') }}"></script>
   <link rel="stylesheet" href="{{  url_for('static', filename='bulma.min.css') }}">
@@ -137,12 +127,10 @@
 
       // Navbar burger menu is handled by spa-navigation.js
 
-      $("#theme-toggle").click(function (e) {
-        e.preventDefault();
-        var isLight = document.documentElement.getAttribute("data-theme") === "light";
-        var next = isLight ? "dark" : "light";
-        document.documentElement.setAttribute("data-theme", next);
-        Cookies.set("theme", next, { expires: 3650, path: window.pikaraokeConfig.cookiePath });
+      window.socket.on("preferences_update", function (data) {
+        if (data.key === "theme") {
+          document.documentElement.setAttribute("data-theme", data.value);
+        }
       });
 
       // handle highlighting current nav bar location
@@ -191,17 +179,6 @@
   .navbar-item > i {
     margin-right: 2px;
   }
-  #theme-toggle svg {
-    width: 18px;
-    height: 18px;
-    display: none;
-  }
-  html[data-theme="dark"] #theme-toggle .icon-moon {
-    display: block;
-  }
-  html[data-theme="light"] #theme-toggle .icon-sun {
-    display: block;
-  }
   .base-notification {
     position: fixed;
     width: 500px;
@@ -246,10 +223,6 @@
   <div class="container" style="padding: 5px; max-width: 900px;">
     <nav class="navbar" role="navigation" aria-label="main navigation">
       <div class="navbar-brand" id="brand" style="padding-left: 10px">
-        <a id="theme-toggle" class="navbar-item" href="#" title="{{ _('Toggle light / dark mode') }}">
-          <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-        </a>
         <a id="home" class="navbar-item" href="{{ url_for('home.home') }}">
           <i class="icon icon-home-2" title="Home"></i>
           {# MSG: Navigation link for the home page. #}
@@ -284,8 +257,9 @@
             <span></span>
           </a>
           <a id="info" class="navbar-item" href="{{ url_for('info.info') }}">
-            <i class="icon icon-info-circled-1" title="Info"></i>
-            <span>Pikaraoke</span>&nbsp;&nbsp;
+            <i class="icon icon-info-circled-1" title="{{ _('Admin') }}"></i>
+            {# MSG: Navigation link to the information/admin page. #}
+            <span>{% trans %}Admin{% endtrans %}</span>&nbsp;&nbsp;
           </a>
         </div>
       </div>
