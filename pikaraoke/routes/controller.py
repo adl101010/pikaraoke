@@ -1,10 +1,10 @@
 """Playback control routes for skip, pause, volume, and transpose."""
 
 import flask_babel
-from flask import redirect, request, url_for
+from flask import flash, redirect, request, url_for
 from flask_smorest import Blueprint
 
-from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance
+from pikaraoke.lib.current_app import broadcast_event, get_karaoke_instance, is_admin
 
 _ = flask_babel.gettext
 
@@ -15,6 +15,10 @@ controller_bp = Blueprint("controller", __name__)
 @controller_bp.route("/skip")
 def skip():
     """Skip the currently playing song."""
+    if not is_admin():
+        # MSG: Message shown after trying to skip a song without admin permissions.
+        flash(_("You don't have permission to skip songs"), "is-danger")
+        return redirect(url_for("home.home"))
     k = get_karaoke_instance()
     broadcast_event("skip", "user command")
     k.playback_controller.skip()

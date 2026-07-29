@@ -257,9 +257,11 @@
 			{# MSG: Title attribute on the button to restart the current song. #}
 			<a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a>&nbsp;&nbsp; {# MSG:
 			Title attribute on the button to play or pause the current song. #}
-			<a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a>&nbsp;&nbsp; {# MSG:
-			Title attribute on the button to skip to the next song. #}
+			<a title="{{ _('Play/Pause') }}"><i id="pause-resume" class="icon icon-pause"></i> </a>&nbsp;&nbsp;
+			{% if admin %}
+			{# MSG: Title attribute on the button to skip to the next song. #}
 			<a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a>
+			{% endif %}
 		</div>
 		<div class="is-size-3" style="display: flex; align-items: center">
 			<i id="vol-down" class="icon icon-volume-down"></i>
