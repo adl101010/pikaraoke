@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS play_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_play_events_played_at ON play_events(played_at);
+
+CREATE TABLE IF NOT EXISTS session_names (
+    started_at TEXT PRIMARY KEY,
+    name TEXT NOT NULL
+);
 """
 
 
@@ -244,6 +249,23 @@ class KaraokeDatabase:
                 "SELECT file_path, user, played_at FROM play_events ORDER BY played_at ASC"
             ).fetchall()
             return [dict(row) for row in rows]
+
+    def get_session_names(self) -> dict[str, str]:
+        """Return a map of session started_at -> admin-given name."""
+        with self._lock:
+            rows = self._conn.execute("SELECT started_at, name FROM session_names").fetchall()
+            return {row["started_at"]: row["name"] for row in rows}
+
+    def set_session_name(self, started_at: str, name: str) -> None:
+        """Set (or clear, if `name` is blank) the admin-given name for a session."""
+        with self._lock, self._conn:
+            if name.strip():
+                self._conn.execute(
+                    "INSERT OR REPLACE INTO session_names (started_at, name) VALUES (?, ?)",
+                    (started_at, name.strip()),
+                )
+            else:
+                self._conn.execute("DELETE FROM session_names WHERE started_at = ?", (started_at,))
 
     # ------------------------------------------------------------------
     # Metadata (app-level key-value store)

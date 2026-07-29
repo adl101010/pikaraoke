@@ -61,6 +61,24 @@
 				});
 			}
 
+			$(".session-name-input").on("blur", function() {
+				let $this = $(this);
+				let val = $this.val();
+				let startVal = $this.attr("data-start-value");
+
+				if (val == startVal) return;
+
+				$this.attr("data-start-value", val);
+				$.get("{{ url_for('recap.set_session_name') }}", {
+					"started_at": $this.attr("data-started-at"),
+					"name": val
+				})
+				.done(function(data) {
+					if (data[0]) showNotification(data[1], "is-success");
+					else showNotification(data[1], "is-danger")
+				});
+			});
+
 			$("#quit-link").click(function (e) {
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user selects quit. #}
@@ -609,7 +627,7 @@
 				<div class="content">
 					<p class="is-size-7 has-text-grey mb-2">
 						{# MSG: Help text explaining the honeypot-based IP blocklist. #}
-						{% trans %}IPs that followed the invisible trap link on the Browse page, or sent queue/playback requests with no name attached. Blocked silently -- they get no error, the action just doesn't happen.{% endtrans %}
+						{% trans %}IPs that followed the invisible trap link on the Library page, or sent queue/playback requests with no name attached. Blocked silently -- they get no error, the action just doesn't happen.{% endtrans %}
 					</p>
 					{% if blocked_ips %}
 					<table class="table is-striped is-fullwidth is-narrow">
@@ -702,6 +720,8 @@
 						<table class="table is-striped is-fullwidth is-narrow">
 							<thead>
 								<tr>
+									{# MSG: Session history table column header for an admin-given name for the session. #}
+									<th>{% trans %}Name{% endtrans %}</th>
 									{# MSG: Session history table column header for the date/time range. #}
 									<th>{% trans %}When{% endtrans %}</th>
 									{# MSG: Session history table column header for how many songs were played. #}
@@ -716,6 +736,17 @@
 							<tbody>
 								{% for entry in session_history %}
 								<tr>
+									<td>
+										<input
+											type="text"
+											class="input is-small session-name-input"
+											style="min-width: 140px;"
+											placeholder="{{ _('Untitled session') }}"
+											value="{{ entry.name or '' }}"
+											data-start-value="{{ entry.name or '' }}"
+											data-started-at="{{ entry.started_at }}"
+										/>
+									</td>
 									<td class="is-size-7">
 										{{ entry.started_at }} &ndash; {{ entry.ended_at }}
 										{% if entry.live %}<span class="tag is-success is-light">{% trans %}Live{% endtrans %}</span>{% endif %}
@@ -868,7 +899,7 @@
 					<div class="user-preference-container is-align-items-center">
 						<input id="pref-browse-per-page" class="user-preference-input input" type="number" min="10" max="1000" step="10" data-pref="browse_results_per_page" data-start-value="{{ browse_results_per_page }}" value="{{ browse_results_per_page }}" />
 						<label class="label" for="pref-browse-per-page">
-							Browse page results per page (10-1000, default 500)
+							Library page results per page (10-1000, default 500)
 						</label>
 					</div>
 

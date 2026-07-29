@@ -54,7 +54,7 @@ def honeypot():
     bot gets no signal it's been caught.
     """
     k = get_karaoke_instance()
-    k.ip_blocklist.block(get_client_ip(), "Followed the Browse page honeypot link")
+    k.ip_blocklist.block(get_client_ip(), "Followed the Library page honeypot link")
     return redirect(url_for("files.browse"))
 
 
@@ -106,6 +106,7 @@ def browse():
         available_songs = result
 
     play_counts = k.db.get_play_counts()
+    popular_songs = k.db.get_top_songs(3)
     sort_param = request.args.get("sort")
     if sort_param == "date":
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
@@ -149,9 +150,10 @@ def browse():
         site_title=site_name,
         letter=letter,
         # MSG: Title of the files page.
-        title=_("Browse"),
+        title=_("Library"),
         songs=songs[start_index : start_index + results_per_page],
         play_counts=play_counts,
+        popular_songs=popular_songs,
         admin=is_admin(),
         current_url=current_url,
     )

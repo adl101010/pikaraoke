@@ -1,4 +1,4 @@
-"""Tests for the Browse page honeypot trap route."""
+"""Tests for the Library page honeypot trap route."""
 
 from unittest.mock import MagicMock, patch
 
@@ -36,7 +36,7 @@ class TestHoneypot:
 
         assert response.status_code == 302
         mock_karaoke.ip_blocklist.block.assert_called_once_with(
-            "127.0.0.1", "Followed the Browse page honeypot link"
+            "127.0.0.1", "Followed the Library page honeypot link"
         )
 
     @patch("pikaraoke.routes.files.get_karaoke_instance")

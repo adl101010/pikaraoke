@@ -71,7 +71,7 @@ def is_action_blocked(k: Karaoke, user: str) -> bool:
     silently no-op'd instead of performed.
 
     Blocks on two signals, both meant to catch bots rather than real guests:
-    - The requesting IP tripped the Browse page honeypot.
+    - The requesting IP tripped the Library page honeypot.
     - No display name was sent at all -- every real browser has one by the
       time any button is clickable, since base.html prompts for it on the
       first page load. A request with none skipped that entirely.

@@ -1,10 +1,11 @@
 """Tonight's recap: live and historical karaoke session summaries."""
 
 import flask_babel
-from flask import jsonify, render_template, request
+from flask import flash, jsonify, redirect, render_template, request, url_for
 from flask_smorest import Blueprint
+from marshmallow import Schema, fields
 
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
+from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.session_stats import compute_all_sessions, is_session_live
 
 _ = flask_babel.gettext
@@ -12,10 +13,20 @@ _ = flask_babel.gettext
 recap_bp = Blueprint("recap", __name__)
 
 
+class SetSessionNameQuery(Schema):
+    started_at = fields.String(
+        required=True, metadata={"description": "started_at of the session to name"}
+    )
+    name = fields.String(
+        load_default="", metadata={"description": "Name for the session (blank clears it)"}
+    )
+
+
 def _get_all_sessions():
     k = get_karaoke_instance()
     events = k.db.get_all_play_events()
-    return compute_all_sessions(events)
+    names = k.db.get_session_names()
+    return compute_all_sessions(events, names=names)
 
 
 def _song_list(session):
@@ -51,6 +62,20 @@ def recap():
         live=live,
         is_latest=is_latest,
     )
+
+
+@recap_bp.route("/recap/name", methods=["GET"])
+@recap_bp.arguments(SetSessionNameQuery, location="query")
+def set_session_name(query):
+    """Set (or clear) the admin-given name for a session, identified by started_at."""
+    k = get_karaoke_instance()
+    if is_admin():
+        k.db.set_session_name(query["started_at"], query["name"])
+        return jsonify([True, _("Session name saved")])
+    else:
+        # MSG: Message shown after trying to name a session without admin permissions.
+        flash(_("You don't have permission to name sessions"), "is-danger")
+        return redirect(url_for("info.info"))
 
 
 @recap_bp.route("/recap/summary")

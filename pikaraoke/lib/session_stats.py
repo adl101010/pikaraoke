@@ -25,22 +25,29 @@ class SessionRecap:
     ended_at: str
     top_songs: list[tuple[str, int]]
     top_singers: list[tuple[str, int]]
+    name: str | None = None
 
 
-def _summarize(session_events: list[dict]) -> SessionRecap:
+def _summarize(session_events: list[dict], names: dict[str, str]) -> SessionRecap:
     song_counts = Counter(e["file_path"] for e in session_events)
     singer_counts = Counter(e["user"] for e in session_events if e["user"])
+    started_at = session_events[0]["played_at"]
     return SessionRecap(
         play_count=len(session_events),
         singer_count=len(singer_counts),
-        started_at=session_events[0]["played_at"],
+        started_at=started_at,
         ended_at=session_events[-1]["played_at"],
         top_songs=song_counts.most_common(10),
         top_singers=singer_counts.most_common(10),
+        name=names.get(started_at),
     )
 
 
-def compute_all_sessions(events: list[dict], gap_hours: float = GAP_HOURS) -> list[SessionRecap]:
+def compute_all_sessions(
+    events: list[dict],
+    gap_hours: float = GAP_HOURS,
+    names: dict[str, str] | None = None,
+) -> list[SessionRecap]:
     """Split the full play history into sessions, oldest first.
 
     Args:
@@ -48,10 +55,13 @@ def compute_all_sessions(events: list[dict], gap_hours: float = GAP_HOURS) -> li
             and played_at (a sqlite CURRENT_TIMESTAMP-formatted string).
         gap_hours: A session ends wherever the gap between two consecutive
             plays exceeds this many hours.
+        names: Map of session started_at -> admin-given name, attached to
+            the matching session if present.
     """
     if not events:
         return []
 
+    names = names or {}
     gap = timedelta(hours=gap_hours)
     sessions = []
     batch = [events[0]]
@@ -59,10 +69,10 @@ def compute_all_sessions(events: list[dict], gap_hours: float = GAP_HOURS) -> li
         prev_time = datetime.fromisoformat(prev["played_at"])
         curr_time = datetime.fromisoformat(curr["played_at"])
         if curr_time - prev_time > gap:
-            sessions.append(_summarize(batch))
+            sessions.append(_summarize(batch, names))
             batch = []
         batch.append(curr)
-    sessions.append(_summarize(batch))
+    sessions.append(_summarize(batch, names))
     return sessions
 
 

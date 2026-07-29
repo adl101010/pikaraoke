@@ -333,6 +333,41 @@ class TestGetAllPlayEvents:
         assert [e["file_path"] for e in events] == ["/songs/a.mp4", "/songs/b.mp4", "/songs/c.mp4"]
 
 
+class TestSessionNames:
+    def test_empty_when_no_names_set(self, db):
+        assert db.get_session_names() == {}
+
+    def test_set_and_get_round_trip(self, db):
+        db.set_session_name("2026-01-01 20:00:00", "John's Birthday")
+        assert db.get_session_names() == {"2026-01-01 20:00:00": "John's Birthday"}
+
+    def test_overwrites_existing_name(self, db):
+        db.set_session_name("2026-01-01 20:00:00", "John's Birthday")
+        db.set_session_name("2026-01-01 20:00:00", "Renamed Party")
+        assert db.get_session_names() == {"2026-01-01 20:00:00": "Renamed Party"}
+
+    def test_strips_whitespace(self, db):
+        db.set_session_name("2026-01-01 20:00:00", "  John's Birthday  ")
+        assert db.get_session_names() == {"2026-01-01 20:00:00": "John's Birthday"}
+
+    def test_blank_name_clears_it(self, db):
+        db.set_session_name("2026-01-01 20:00:00", "John's Birthday")
+        db.set_session_name("2026-01-01 20:00:00", "   ")
+        assert db.get_session_names() == {}
+
+    def test_clearing_unset_name_is_a_no_op(self, db):
+        db.set_session_name("2026-01-01 20:00:00", "")  # should not raise
+        assert db.get_session_names() == {}
+
+    def test_multiple_sessions_tracked_independently(self, db):
+        db.set_session_name("2026-01-01 20:00:00", "John's Birthday")
+        db.set_session_name("2026-01-08 20:00:00", "New Year's Eve")
+        assert db.get_session_names() == {
+            "2026-01-01 20:00:00": "John's Birthday",
+            "2026-01-08 20:00:00": "New Year's Eve",
+        }
+
+
 class TestSchemaMigration:
     def test_play_count_column_added_to_pre_existing_db(self, tmp_path):
         db_path = str(tmp_path / "legacy.db")

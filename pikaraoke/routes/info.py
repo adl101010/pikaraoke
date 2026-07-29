@@ -44,7 +44,7 @@ def info():
 
     session_history = []
     if is_admin():
-        sessions = compute_all_sessions(k.db.get_all_play_events())
+        sessions = compute_all_sessions(k.db.get_all_play_events(), names=k.db.get_session_names())
         session_history = [
             {
                 "started_at": s.started_at,
@@ -52,6 +52,7 @@ def info():
                 "play_count": s.play_count,
                 "singer_count": s.singer_count,
                 "top_singer": s.top_singers[0][0] if s.top_singers else None,
+                "name": s.name,
                 "live": is_session_live(s) if s is sessions[-1] else False,
             }
             for s in reversed(sessions[-50:])

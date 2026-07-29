@@ -131,6 +131,36 @@
 	{% endif%}
 </p>
 
+{% if popular_songs %}
+<div class="box" style="padding: 10px 15px; margin-bottom: 15px;">
+	<p class="has-text-weight-bold mb-2">
+		{# MSG: Heading for the box highlighting the most popular songs in the library. #}
+		{% trans %}Most Popular{% endtrans %}
+	</p>
+	<table style="margin-bottom: 0;">
+		{% for entry in popular_songs %}
+		{% set display_name = filename_from_path(entry.file_path) %}
+		<tr>
+			<td style="padding: 3px 0px">{{ loop.index }}</td>
+			<td style="padding-right: 0">
+				<a
+					class="add-song-link has-text-weight-bold has-text-success"
+					title="Add '{{display_name}}' to queue"
+					data-title="{{display_name}}"
+					href="{{url_for('queue.enqueue')}}?song={{url_escape(entry.file_path.encode('utf-8','surrogateescape'))}}&user="
+					><i class="icon icon-list-add"></i>
+				</a>
+			</td>
+			<td class="break-word" style="padding-right: 0">{{display_name}}</td>
+			<td class="has-text-grey is-size-7" style="padding-right: 0; white-space: nowrap;">
+				{% trans count=entry.play_count %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}
+			</td>
+		</tr>
+		{% endfor %}
+	</table>
+</div>
+{% endif %}
+
 <div id="alpha-bar" class="column is-full has-background-dark mobile-hide">
 	<a href="{{ url_for('files.browse') }}" title="Show all"><i class="icon icon-list-bullet"></i></a>
 	<a href="{{ url_for('files.browse') }}?letter=numeric">#</a>

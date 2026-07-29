@@ -26,6 +26,9 @@
 	<div class="card">
 		<div class="card-content">
 			<div class="content has-text-centered">
+				{% if session.name %}
+				<p class="is-size-3 has-text-weight-bold">{{ session.name }}</p>
+				{% endif %}
 				{% if live %}
 				<p class="is-size-5 has-text-success has-text-weight-bold">
 					{# MSG: Badge shown when the session on the recap page is still ongoing. #}

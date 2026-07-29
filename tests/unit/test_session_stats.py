@@ -83,6 +83,21 @@ class TestComputeAllSessions:
         assert sessions[0].play_count == 2
         assert sessions[0].singer_count == 1
 
+    def test_name_defaults_to_none(self):
+        events = [_event("/a.mp4", "Alice", "2026-01-01 20:00:00")]
+        sessions = compute_all_sessions(events)
+        assert sessions[0].name is None
+
+    def test_name_attached_by_matching_started_at(self):
+        events = [
+            _event("/old.mp4", "Alice", "2026-01-01 10:00:00"),
+            _event("/new.mp4", "Bob", "2026-01-05 10:00:00"),
+        ]
+        names = {"2026-01-01 10:00:00": "John's Birthday"}
+        sessions = compute_all_sessions(events, gap_hours=1.0, names=names)
+        assert sessions[0].name == "John's Birthday"
+        assert sessions[1].name is None
+
 
 class TestIsSessionLive:
     def test_live_when_last_play_within_gap(self):
