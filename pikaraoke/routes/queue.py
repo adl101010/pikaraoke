@@ -182,6 +182,8 @@ def _do_enqueue(song: str, user: str) -> str:
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
     song_title = k.song_manager.display_name_from_path(song)
+    if rc[0]:
+        k.audit_log.record(user, _("Queued song"), song_title)
     return json.dumps({"song": song_title, "success": rc})
 
 

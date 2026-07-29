@@ -27,6 +27,7 @@ from pikaraoke.lib.get_platform import (
     get_platform,
     is_raspberry_pi,
 )
+from pikaraoke.lib.audit_log import AuditLog
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
 from pikaraoke.lib.network import get_ip
@@ -222,6 +223,7 @@ class Karaoke:
 
         # Initialize database, scanner, and song manager (startup runs at end of __init__)
         self.db = KaraokeDatabase()
+        self.audit_log = AuditLog()
         self.song_manager = SongManager(
             self.download_path, db=self.db, get_title_tidy=lambda: self.enable_title_tidy
         )
@@ -290,6 +292,7 @@ class Karaoke:
             download_path=self.download_path,
             youtubedl_proxy=self.youtubedl_proxy,
             additional_ytdl_args=self.additional_ytdl_args,
+            audit_log=self.audit_log,
         )
         self.download_manager.start()
 

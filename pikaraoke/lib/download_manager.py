@@ -10,6 +10,7 @@ from queue import Queue
 
 from gevent import Greenlet, spawn
 
+from pikaraoke.lib.audit_log import AuditLog
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 from pikaraoke.lib.queue_manager import QueueManager
@@ -39,6 +40,7 @@ class DownloadManager:
         download_path: str,
         youtubedl_proxy: str | None = None,
         additional_ytdl_args: str | None = None,
+        audit_log: AuditLog | None = None,
     ) -> None:
         """Initialize the download manager.
 
@@ -50,6 +52,7 @@ class DownloadManager:
             download_path: Directory where downloads are saved.
             youtubedl_proxy: Optional proxy URL for yt-dlp.
             additional_ytdl_args: Optional additional arguments for yt-dlp.
+            audit_log: Optional audit log to record completed downloads to.
         """
         self._events = events
         self._preferences = preferences
@@ -58,6 +61,7 @@ class DownloadManager:
         self._download_path = download_path
         self._youtubedl_proxy = youtubedl_proxy
         self._additional_ytdl_args = additional_ytdl_args
+        self._audit_log = audit_log
         self.download_queue: Queue = Queue()
         self.pending_downloads: list[dict] = []  # Shadow queue for visibility
         self.download_errors: list[dict] = []  # Track failed downloads
@@ -299,6 +303,9 @@ class DownloadManager:
             if self.active_download:
                 self.active_download["progress"] = 100
                 self.active_download["status"] = "complete"
+
+            if self._audit_log:
+                self._audit_log.record(user, _("Downloaded song"), displayed_title)
 
             if enqueue:
                 # MSG: Message shown after the download is completed and queued

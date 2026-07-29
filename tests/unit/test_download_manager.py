@@ -267,6 +267,62 @@ class TestDownloadManagerExecuteDownload:
         assert any("Error queueing" in msg and cat == "danger" for msg, cat in notifications)
 
 
+class TestDownloadManagerAuditLog:
+    """Successful downloads should be recorded to the audit log; failures shouldn't."""
+
+    @pytest.fixture
+    def audit_log(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def download_manager_with_audit(self, events, preferences, song_manager, queue_manager, audit_log):
+        return DownloadManager(
+            events=events,
+            preferences=preferences,
+            song_manager=song_manager,
+            queue_manager=queue_manager,
+            download_path="/songs",
+            youtubedl_proxy=None,
+            additional_ytdl_args=None,
+            audit_log=audit_log,
+        )
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_successful_download_is_logged(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager_with_audit, song_manager, audit_log
+    ):
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.side_effect = [""]
+        mock_process.poll.return_value = 0
+        mock_popen.return_value = mock_process
+        song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+
+        download_manager_with_audit._execute_download(
+            "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "Grace", "Title"
+        )
+
+        audit_log.record.assert_called_once_with("Grace", "Downloaded song", "Title")
+
+    @patch("flask_babel._", side_effect=lambda x: x)
+    @patch("subprocess.Popen")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_failed_download_is_not_logged(
+        self, mock_build_cmd, mock_popen, mock_gettext, download_manager_with_audit, audit_log
+    ):
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        mock_process = MagicMock()
+        mock_process.stdout.readline.return_value = ""
+        mock_process.poll.return_value = 1
+        mock_popen.return_value = mock_process
+
+        download_manager_with_audit._execute_download("url", False, "Grace", "Title")
+
+        audit_log.record.assert_not_called()
+
+
 class TestDownloadManagerStatus:
     """Tests for DownloadManager.get_downloads_status method."""
 

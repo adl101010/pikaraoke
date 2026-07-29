@@ -20,6 +20,9 @@ def skip():
         flash(_("You don't have permission to skip songs"), "is-danger")
         return redirect(url_for("home.home"))
     k = get_karaoke_instance()
+    k.audit_log.record(
+        request.args.get("user", ""), _("Skipped song"), k.playback_controller.now_playing or ""
+    )
     broadcast_event("skip", "user command")
     k.playback_controller.skip()
     return redirect(url_for("home.home"))
@@ -30,9 +33,12 @@ def pause():
     """Toggle pause/resume playback."""
     k = get_karaoke_instance()
     if k.playback_controller.is_paused:
+        action = _("Resumed playback")
         broadcast_event("play")
     else:
+        action = _("Paused playback")
         broadcast_event("pause")
+    k.audit_log.record(request.args.get("user", ""), action, k.playback_controller.now_playing or "")
     k.playback_controller.pause()
     return redirect(url_for("home.home"))
 
@@ -41,6 +47,11 @@ def pause():
 def transpose(semitones):
     """Transpose (pitch shift) the current song."""
     k = get_karaoke_instance()
+    k.audit_log.record(
+        request.args.get("user", ""),
+        _("Changed key"),
+        "%s semitones -- %s" % (semitones, k.playback_controller.now_playing or ""),
+    )
     broadcast_event("skip", "transpose current")
     k.transpose_current(int(semitones))
     return redirect(url_for("home.home"))
@@ -59,6 +70,7 @@ def restart():
 def volume(volume):
     """Set the playback volume."""
     k = get_karaoke_instance()
+    k.audit_log.record(request.args.get("user", ""), _("Changed volume"), str(volume))
     broadcast_event("volume", volume)
     k.volume_change(float(volume))
     return redirect(url_for("home.home"))
@@ -68,6 +80,7 @@ def volume(volume):
 def vol_up():
     """Increase volume by 10%."""
     k = get_karaoke_instance()
+    k.audit_log.record(request.args.get("user", ""), _("Increased volume"))
     broadcast_event("volume", "up")
     k.vol_up()
     return redirect(url_for("home.home"))
@@ -77,6 +90,7 @@ def vol_up():
 def vol_down():
     """Decrease volume by 10%."""
     k = get_karaoke_instance()
+    k.audit_log.record(request.args.get("user", ""), _("Decreased volume"))
     broadcast_event("volume", "down")
     k.vol_down()
     return redirect(url_for("home.home"))

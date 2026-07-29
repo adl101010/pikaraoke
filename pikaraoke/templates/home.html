@@ -120,6 +120,10 @@
 		}
 	}
 
+	function getActionUser() {
+		return encodeURIComponent(Cookies.get("user") || "");
+	}
+
 	$(function () {
 		$(".control-box").hide();
 
@@ -137,7 +141,7 @@
 			"input",
 			debounce(function (event) {
 				const value = this.value;
-				$.get(window.pikaraokeConfig.basePath + "/volume/" + value);
+				$.get(window.pikaraokeConfig.basePath + "/volume/" + value + "?user=" + getActionUser());
 			}, 500)
 		);
 
@@ -150,23 +154,23 @@
 			}
 			r = confirm(window.translations.confirmTranspose.replace("SEMITONE_LABEL", getSemitonesLabel(value)));
 			if (r) {
-				$.get(window.pikaraokeConfig.basePath + "/transpose/" + value);
+				$.get(window.pikaraokeConfig.basePath + "/transpose/" + value + "?user=" + getActionUser());
 			}
 			slider.value = 0;
 			output.innerHTML = getSemitonesLabel(slider.value);
 		});
 
 		$("#pause-resume").click(function () {
-			$.get(window.pikaraokeConfig.basePath + "/pause");
+			$.get(window.pikaraokeConfig.basePath + "/pause?user=" + getActionUser());
 			togglePausePlayButton();
 		});
 
 		$("#vol-up").click(function () {
-			$.get(window.pikaraokeConfig.basePath + "/vol_up");
+			$.get(window.pikaraokeConfig.basePath + "/vol_up?user=" + getActionUser());
 		});
 
 		$("#vol-down").click(function () {
-			$.get(window.pikaraokeConfig.basePath + "/vol_down");
+			$.get(window.pikaraokeConfig.basePath + "/vol_down?user=" + getActionUser());
 		});
 
 		$("#restart").click(function () {
@@ -182,7 +186,7 @@
 				{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }}
 			);
 			if (r) {
-				$.get(window.pikaraokeConfig.basePath + "/skip");
+				$.get(window.pikaraokeConfig.basePath + "/skip?user=" + getActionUser());
 			}
 		});
 

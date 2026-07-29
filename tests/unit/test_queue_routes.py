@@ -29,6 +29,44 @@ def client(app):
     return app.test_client()
 
 
+class TestEnqueueAuditLogging:
+    """Successful enqueues should be recorded to the audit log."""
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
+    def test_successful_enqueue_is_logged(
+        self, mock_gettext, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.enqueue.return_value = [True, "Song added to the queue"]
+        mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/enqueue?song=/songs/a.mp4&user=Frank")
+
+        assert response.status_code == 200
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Frank", "Queued song", "Artist - Song"
+        )
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
+    def test_failed_enqueue_is_not_logged(
+        self, mock_gettext, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.enqueue.return_value = [False, "Song is already in the queue"]
+        mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/enqueue?song=/songs/a.mp4&user=Frank")
+
+        assert response.status_code == 200
+        mock_karaoke.audit_log.record.assert_not_called()
+
+
 class TestQueueRoutes:
     """Tests for queue routes."""
 

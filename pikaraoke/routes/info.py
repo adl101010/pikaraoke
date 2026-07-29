@@ -37,6 +37,8 @@ def info():
     # yt-dlp
     youtubedl_version = k.youtubedl_version
 
+    audit_log_entries = k.audit_log.get_recent(100) if is_admin() else []
+
     return render_template(
         "info.html",
         site_title=site_name,
@@ -89,6 +91,7 @@ def info():
         mic_passthrough_enabled=k.enable_mic_passthrough,
         is_custom_logo=k.logo_path != k.default_logo_path,
         logo_version=int(os.path.getmtime(k.logo_path)),
+        audit_log_entries=audit_log_entries,
     )
 
 

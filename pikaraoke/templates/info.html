@@ -559,6 +559,47 @@
 			<hr class="my-0">
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Audit Log section of preferences #}{% trans %}Audit Log{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey mb-2">
+						{# MSG: Help text explaining what the audit log tracks and its retention. #}
+						{% trans %}Who queued, paused, skipped, transposed, changed volume, or downloaded a song. Showing the most recent 100 of up to 2000 stored entries.{% endtrans %}
+					</p>
+					{% if audit_log_entries %}
+					<div style="overflow-x: auto; max-height: 360px; overflow-y: auto;">
+						<table class="table is-striped is-fullwidth is-narrow">
+							<thead>
+								<tr>
+									{# MSG: Audit log table column header for when the action happened. #}
+									<th>{% trans %}Time{% endtrans %}</th>
+									{# MSG: Audit log table column header for who performed the action. #}
+									<th>{% trans %}User{% endtrans %}</th>
+									{# MSG: Audit log table column header for what action was performed. #}
+									<th>{% trans %}Action{% endtrans %}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for entry in audit_log_entries %}
+								<tr>
+									<td class="is-size-7">{{ entry.timestamp }}</td>
+									<td>{{ entry.user }}</td>
+									<td>{{ entry.action }}{% if entry.detail %} &mdash; {{ entry.detail }}{% endif %}</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<p class="has-text-grey">{% trans %}Nothing logged yet.{% endtrans %}</p>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 				{# MSG: Title text for the Score Phrases section of preferences #}
 				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>
