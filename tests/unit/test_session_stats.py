@@ -83,6 +83,29 @@ class TestComputeAllSessions:
         assert sessions[0].play_count == 2
         assert sessions[0].singer_count == 1
 
+    def test_songs_by_singer_groups_each_users_songs(self):
+        events = [
+            _event("/a.mp4", "Alice", "2026-01-01 20:00:00"),
+            _event("/b.mp4", "Alice", "2026-01-01 20:05:00"),
+            _event("/c.mp4", "Bob", "2026-01-01 20:10:00"),
+        ]
+        sessions = compute_all_sessions(events)
+        assert set(sessions[0].songs_by_singer["Alice"]) == {("/a.mp4", 1), ("/b.mp4", 1)}
+        assert sessions[0].songs_by_singer["Bob"] == [("/c.mp4", 1)]
+
+    def test_songs_by_singer_counts_repeats(self):
+        events = [
+            _event("/a.mp4", "Alice", "2026-01-01 20:00:00"),
+            _event("/a.mp4", "Alice", "2026-01-01 20:05:00"),
+        ]
+        sessions = compute_all_sessions(events)
+        assert sessions[0].songs_by_singer["Alice"] == [("/a.mp4", 2)]
+
+    def test_songs_by_singer_excludes_blank_users(self):
+        events = [_event("/a.mp4", "", "2026-01-01 20:00:00")]
+        sessions = compute_all_sessions(events)
+        assert sessions[0].songs_by_singer == {}
+
     def test_name_defaults_to_none(self):
         events = [_event("/a.mp4", "Alice", "2026-01-01 20:00:00")]
         sessions = compute_all_sessions(events)

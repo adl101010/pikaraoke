@@ -37,6 +37,17 @@ def _song_list(session):
     ]
 
 
+def _songs_by_singer_display(session):
+    k = get_karaoke_instance()
+    return {
+        singer: [
+            {"display_name": k.song_manager.display_name_from_path(path), "count": count}
+            for path, count in songs
+        ]
+        for singer, songs in session.songs_by_singer.items()
+    }
+
+
 @recap_bp.route("/recap")
 def recap():
     """Recap page: defaults to the current/last session, or a specific past one via ?session=."""
@@ -59,6 +70,7 @@ def recap():
         title=_("Recap"),
         session=session,
         top_songs=_song_list(session) if session else [],
+        songs_by_singer=_songs_by_singer_display(session) if session else {},
         live=live,
         is_latest=is_latest,
     )

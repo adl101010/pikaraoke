@@ -51,10 +51,12 @@
 				</p>
 				<p class="is-size-7 has-text-grey">{{ session.started_at }} &ndash; {{ session.ended_at }}</p>
 				{% endif %}
-				<p class="is-size-2 has-text-warning has-text-weight-bold">{{ session.play_count }}</p>
 				<p>
-					{# MSG: Count of songs played in this session, e.g. "songs sung". #}
-					{% trans %}songs sung{% endtrans %}
+					<span class="is-size-2 has-text-warning has-text-weight-bold">{{ session.play_count }}</span>
+					<span class="is-size-5">
+						{# MSG: Label next to the song count, e.g. "6 [songs sung]". Pluralized on the song count. #}
+						{% trans count=session.play_count %}song sung{% pluralize %}songs sung{% endtrans %}
+					</span>
 				</p>
 				<p class="is-size-4">
 					{# MSG: Count of distinct singers in this session. #}
@@ -117,7 +119,16 @@
 						{% for user, count in session.top_singers %}
 						<tr>
 							<td>{{ loop.index }}</td>
-							<td>{{ user }}</td>
+							<td>
+								<details>
+									<summary style="cursor: pointer;">{{ user }}</summary>
+									<ul class="is-size-7 has-text-grey" style="margin-top: 4px; margin-left: 15px;">
+										{% for entry in songs_by_singer.get(user, []) %}
+										<li>{{ entry.display_name }}{% if entry.count > 1 %} &times;{{ entry.count }}{% endif %}</li>
+										{% endfor %}
+									</ul>
+								</details>
+							</td>
 							<td>{{ count }}</td>
 						</tr>
 						{% endfor %}
