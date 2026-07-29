@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS audit_log (
     timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
     user TEXT NOT NULL,
     action TEXT NOT NULL,
-    detail TEXT
+    detail TEXT,
+    ip_address TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_log_id ON audit_log(id DESC);
@@ -38,13 +39,21 @@ class AuditLog:
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrate_schema()
 
-    def record(self, user: str, action: str, detail: str = "") -> None:
+    def _migrate_schema(self) -> None:
+        """Add columns introduced after a database may already exist on disk."""
+        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(audit_log)")}
+        if "ip_address" not in columns:
+            with self._conn:
+                self._conn.execute("ALTER TABLE audit_log ADD COLUMN ip_address TEXT")
+
+    def record(self, user: str, action: str, detail: str = "", ip_address: str = "") -> None:
         """Add an entry and prune anything beyond the most recent MAX_ENTRIES."""
         with self._lock, self._conn:
             self._conn.execute(
-                "INSERT INTO audit_log (user, action, detail) VALUES (?, ?, ?)",
-                (user or "Unknown", action, detail),
+                "INSERT INTO audit_log (user, action, detail, ip_address) VALUES (?, ?, ?, ?)",
+                (user or "Unknown", action, detail, ip_address or "Unknown"),
             )
             self._conn.execute(
                 "DELETE FROM audit_log WHERE id NOT IN "
@@ -56,7 +65,7 @@ class AuditLog:
         """Return the most recent entries, newest first."""
         with self._lock:
             rows = self._conn.execute(
-                "SELECT timestamp, user, action, detail FROM audit_log "
+                "SELECT timestamp, user, action, detail, ip_address FROM audit_log "
                 "ORDER BY id DESC LIMIT ?",
                 (limit,),
             ).fetchall()

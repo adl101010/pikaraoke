@@ -46,6 +46,18 @@ def get_admin_password() -> str:
     return current_app.config["ADMIN_PASSWORD"]
 
 
+def get_client_ip() -> str:
+    """Get the requesting client's IP address, for the audit log.
+
+    Prefers the first hop in X-Forwarded-For (set by a reverse proxy) over
+    request.remote_addr, which would otherwise just be the proxy's own IP.
+    """
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.remote_addr or "Unknown"
+
+
 def get_site_name() -> str:
     """Get the site name from the current app's configuration
     This function returns the site name stored in the current app's configuration.

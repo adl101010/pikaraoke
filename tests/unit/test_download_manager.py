@@ -301,10 +301,10 @@ class TestDownloadManagerAuditLog:
         song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
 
         download_manager_with_audit._execute_download(
-            "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "Grace", "Title"
+            "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "Grace", "Title", "10.0.0.7"
         )
 
-        audit_log.record.assert_called_once_with("Grace", "Downloaded song", "Title")
+        audit_log.record.assert_called_once_with("Grace", "Downloaded song", "Title", "10.0.0.7")
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")

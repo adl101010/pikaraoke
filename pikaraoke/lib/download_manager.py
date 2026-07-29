@@ -111,6 +111,7 @@ class DownloadManager:
         enqueue: bool = False,
         user: str = "Pikaraoke",
         title: str | None = None,
+        ip_address: str = "",
     ) -> None:
         """Queue a video for download.
 
@@ -121,6 +122,8 @@ class DownloadManager:
             enqueue: Whether to add to playback queue after download.
             user: Username to attribute the download to.
             title: Display title (defaults to URL if not provided).
+            ip_address: Requesting client's IP, for the audit log. Captured here
+                (not in the worker) since the worker runs outside a request context.
         """
         from flask_babel import _
 
@@ -153,6 +156,7 @@ class DownloadManager:
             "user": user,
             "title": title,
             "display_title": displayed_title,
+            "ip_address": ip_address,
         }
 
         # Add to the download queue and shadow list
@@ -194,6 +198,7 @@ class DownloadManager:
                     download_request["enqueue"],
                     download_request["user"],
                     download_request["title"],
+                    download_request.get("ip_address", ""),
                 )
             except Exception as e:
                 logging.error(f"Error processing download: {e}")
@@ -212,6 +217,7 @@ class DownloadManager:
         enqueue: bool,
         user: str,
         title: str | None,
+        ip_address: str = "",
     ) -> int:
         """Execute a video download.
 
@@ -220,6 +226,7 @@ class DownloadManager:
             enqueue: Whether to add to queue after download.
             user: Username to attribute the download to.
             title: Display title (defaults to URL if not provided).
+            ip_address: Requesting client's IP, for the audit log.
 
         Returns:
             Return code from the download process (0 = success).
@@ -305,7 +312,7 @@ class DownloadManager:
                 self.active_download["status"] = "complete"
 
             if self._audit_log:
-                self._audit_log.record(user, _("Downloaded song"), displayed_title)
+                self._audit_log.record(user, _("Downloaded song"), displayed_title, ip_address)
 
             if enqueue:
                 # MSG: Message shown after the download is completed and queued

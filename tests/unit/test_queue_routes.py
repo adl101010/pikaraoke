@@ -47,7 +47,7 @@ class TestEnqueueAuditLogging:
 
         assert response.status_code == 200
         mock_karaoke.audit_log.record.assert_called_once_with(
-            "Frank", "Queued song", "Artist - Song"
+            "Frank", "Queued song", "Artist - Song", "127.0.0.1"
         )
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")

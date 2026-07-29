@@ -12,6 +12,7 @@ from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import (
     broadcast_event,
+    get_client_ip,
     get_karaoke_instance,
     get_site_name,
     is_admin,
@@ -183,7 +184,7 @@ def _do_enqueue(song: str, user: str) -> str:
     broadcast_event("queue_update")
     song_title = k.song_manager.display_name_from_path(song)
     if rc[0]:
-        k.audit_log.record(user, _("Queued song"), song_title)
+        k.audit_log.record(user, _("Queued song"), song_title, get_client_ip())
     return json.dumps({"song": song_title, "success": rc})
 
 

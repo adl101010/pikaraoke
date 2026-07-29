@@ -9,7 +9,7 @@ from flask import current_app, jsonify, render_template, request, url_for
 from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name
+from pikaraoke.lib.current_app import get_client_ip, get_karaoke_instance, get_site_name
 from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 
 _ = flask_babel.gettext
@@ -104,6 +104,6 @@ def download(form):
     queue = form.get("queue", False)
 
     # Queue the download (processed serially by the download worker)
-    k.download_manager.queue_download(song, queue, user, title)
+    k.download_manager.queue_download(song, queue, user, title, ip_address=get_client_ip())
 
     return jsonify({"status": "ok"})

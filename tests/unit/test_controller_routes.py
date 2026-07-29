@@ -65,7 +65,7 @@ class TestSkipRoute:
         mock_karaoke.playback_controller.skip.assert_called_once()
         mock_broadcast.assert_called_once_with("skip", "user command")
         mock_karaoke.audit_log.record.assert_called_once_with(
-            "Alice", "Skipped song", "Bohemian Rhapsody"
+            "Alice", "Skipped song", "Bohemian Rhapsody", "127.0.0.1"
         )
 
 
@@ -85,7 +85,9 @@ class TestAuditLogging:
 
         client.get("/pause?user=Bob")
 
-        mock_karaoke.audit_log.record.assert_called_once_with("Bob", "Paused playback", "Song A")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Bob", "Paused playback", "Song A", "127.0.0.1"
+        )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
@@ -100,7 +102,9 @@ class TestAuditLogging:
 
         client.get("/pause?user=Bob")
 
-        mock_karaoke.audit_log.record.assert_called_once_with("Bob", "Resumed playback", "Song A")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Bob", "Resumed playback", "Song A", "127.0.0.1"
+        )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
@@ -115,7 +119,9 @@ class TestAuditLogging:
 
         client.get("/pause")
 
-        mock_karaoke.audit_log.record.assert_called_once_with("", "Paused playback", "Song A")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "", "Paused playback", "Song A", "127.0.0.1"
+        )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
@@ -130,7 +136,7 @@ class TestAuditLogging:
         client.get("/transpose/3?user=Carol")
 
         mock_karaoke.audit_log.record.assert_called_once_with(
-            "Carol", "Changed key", "3 semitones -- Song A"
+            "Carol", "Changed key", "3 semitones -- Song A", "127.0.0.1"
         )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
@@ -142,7 +148,9 @@ class TestAuditLogging:
 
         client.get("/volume/0.5?user=Dana")
 
-        mock_karaoke.audit_log.record.assert_called_once_with("Dana", "Changed volume", "0.5")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Dana", "Changed volume", "0.5", "127.0.0.1"
+        )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
@@ -153,7 +161,9 @@ class TestAuditLogging:
 
         client.get("/vol_up?user=Eve")
 
-        mock_karaoke.audit_log.record.assert_called_once_with("Eve", "Increased volume")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Eve", "Increased volume", "", "127.0.0.1"
+        )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
@@ -164,7 +174,9 @@ class TestAuditLogging:
 
         client.get("/vol_down?user=Eve")
 
-        mock_karaoke.audit_log.record.assert_called_once_with("Eve", "Decreased volume")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Eve", "Decreased volume", "", "127.0.0.1"
+        )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
