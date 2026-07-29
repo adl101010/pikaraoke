@@ -14,6 +14,41 @@
 		});
 	}
 
+	function loadActiveSingers() {
+		$.get('{{ url_for("queue.get_queue") }}', function (data) {
+			handleActiveSingers(JSON.parse(data));
+		});
+	}
+
+	function handleActiveSingers(queue) {
+		var counts = [];
+		var seen = {};
+		queue.forEach(function (item) {
+			if (!seen.hasOwnProperty(item.user)) {
+				seen[item.user] = counts.length;
+				counts.push({ user: item.user, count: 0 });
+			}
+			counts[seen[item.user]].count++;
+		});
+
+		if (counts.length === 0) {
+			// {# MSG: Message shown in the active singers list when no one has queued a song. #}
+			$("#active-singers").html('<p class="has-text-grey">' + {{ _("No one has queued a song yet.") | tojson }} + '</p>');
+			return;
+		}
+
+		var html = "";
+		counts.forEach(function (entry) {
+			html += '<p style="margin-bottom: 5px">';
+			html += '<i class="icon icon-mic-1"></i> ' + entry.user;
+			if (entry.count > 1) {
+				html += ' <span class="has-text-grey">(' + entry.count + ')</span>';
+			}
+			html += '</p>';
+		});
+		$("#active-singers").html(html);
+	}
+
 	function handleNowPlaying(np) {
 		console.log(np);
 		if (np.now_playing) {
@@ -161,16 +196,22 @@
 		//for pushed updates to now playing state
 		window.socket.on("now_playing", (np) => handleNowPlaying(np));
 
+		//active singers sidebar
+		loadActiveSingers();
+		window.socket.on("queue_update", loadActiveSingers);
+
 		document.addEventListener("visibilitychange", function () {
 			console.log("on visibility change");
 
 			if (document.visibilityState === "visible") {
 				loadNowPlaying();
+				loadActiveSingers();
 				console.log(window.socket);
 				if (!window.socket.connected) {
 					console.log("Reconnecting socket...");
 					window.socket = io({ path: window.pikaraokeConfig.socketioPath });
 					window.socket.on("now_playing", (np) => handleNowPlaying(np));
+					window.socket.on("queue_update", loadActiveSingers);
 				}
 			}
 		});
@@ -241,6 +282,9 @@
 	/>{% endblock %}
 </h1>
 {% endblock %} {% block content %}
+
+<div class="columns">
+<div class="column">
 
 <p class="is-size-4 has-text-warning" id="now-playing">&nbsp;</p>
 
@@ -319,5 +363,17 @@
 	{% endif %}
 </div>
 
-<div></div>
+</div>
+
+<div class="column is-one-third">
+	<div class="has-background-black-bis box">
+		{# MSG: Title of the sidebar list of users who currently have a song queued. #}
+		<h4>{% trans %}Active Singers{% endtrans %}</h4>
+		<div id="active-singers">
+			<p class="has-text-grey">{% trans %}Loading...{% endtrans %}</p>
+		</div>
+	</div>
+</div>
+
+</div>
 {% endblock %}
