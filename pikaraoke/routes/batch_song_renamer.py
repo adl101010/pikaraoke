@@ -229,6 +229,9 @@ def get_songs_to_rename(query):
 @batch_song_renamer_bp.arguments(RenameSongForm, location="form")
 def rename_song(form):
     """Rename a song file."""
+    if not is_admin():
+        return jsonify(_error_response(_("You don't have permission to edit songs")))
+
     k = get_karaoke_instance()
 
     if "new_name" not in form or "old_name" not in form:
