@@ -249,7 +249,6 @@
 <p id="up-next" class="has-text-warning"></p>
 <hr />
 
-{% if admin %}
 <div class="has-background-black-bis box control-box" style="max-width: 500px; display: none">
 	{# MSG: Title of the box with controls such as pause and skip. #}
 	<h4>{% trans %}Player Control{% endtrans %}</h4>
@@ -309,7 +308,7 @@
 	</div>
 	{% endif %}
 
-	{% if mic_available %}
+	{% if admin and mic_available %}
 	<div id="mic-live-panel" style="display: none">
 		<hr />
 		<h4><i class="icon icon-mic-1"></i> {% trans %}Microphones{% endtrans %}</h4>
@@ -317,7 +316,6 @@
 	</div>
 	{% endif %}
 </div>
-{% endif %}
 
 <div></div>
 {% endblock %}
