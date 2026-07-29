@@ -38,6 +38,7 @@ def info():
     youtubedl_version = k.youtubedl_version
 
     audit_log_entries = k.audit_log.get_recent(100) if is_admin() else []
+    blocked_ips = k.ip_blocklist.get_all() if is_admin() else []
 
     return render_template(
         "info.html",
@@ -92,6 +93,7 @@ def info():
         is_custom_logo=k.logo_path != k.default_logo_path,
         logo_version=int(os.path.getmtime(k.logo_path)),
         audit_log_entries=audit_log_entries,
+        blocked_ips=blocked_ips,
     )
 
 

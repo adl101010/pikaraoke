@@ -29,6 +29,13 @@ def client(app):
     return app.test_client()
 
 
+def _unblocked_karaoke():
+    """A MagicMock karaoke instance with the block check passing through."""
+    k = MagicMock()
+    k.ip_blocklist.is_blocked.return_value = False
+    return k
+
+
 class TestEnqueueAuditLogging:
     """Successful enqueues should be recorded to the audit log."""
 
@@ -38,7 +45,7 @@ class TestEnqueueAuditLogging:
     def test_successful_enqueue_is_logged(
         self, mock_gettext, mock_broadcast, mock_get_instance, client
     ):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_karaoke.queue_manager.enqueue.return_value = [True, "Song added to the queue"]
         mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
         mock_get_instance.return_value = mock_karaoke
@@ -56,7 +63,7 @@ class TestEnqueueAuditLogging:
     def test_failed_enqueue_is_not_logged(
         self, mock_gettext, mock_broadcast, mock_get_instance, client
     ):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_karaoke.queue_manager.enqueue.return_value = [False, "Song is already in the queue"]
         mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
         mock_get_instance.return_value = mock_karaoke
@@ -64,6 +71,48 @@ class TestEnqueueAuditLogging:
         response = client.get("/enqueue?song=/songs/a.mp4&user=Frank")
 
         assert response.status_code == 200
+        mock_karaoke.audit_log.record.assert_not_called()
+
+
+class TestEnqueueBlocking:
+    """A blocked IP or a request with no user identity silently no-ops."""
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
+    def test_enqueue_without_user_is_not_added(
+        self, mock_gettext, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/enqueue?song=/songs/a.mp4&user=")
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["success"][0] is False
+        mock_karaoke.queue_manager.enqueue.assert_not_called()
+        mock_karaoke.audit_log.record.assert_not_called()
+        mock_broadcast.assert_not_called()
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    @patch("pikaraoke.routes.queue.broadcast_event")
+    @patch("pikaraoke.routes.queue._", side_effect=lambda x: x)
+    def test_enqueue_from_flagged_ip_is_not_added(
+        self, mock_gettext, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.ip_blocklist.is_blocked.return_value = True
+        mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/enqueue?song=/songs/a.mp4&user=RealPerson")
+
+        assert response.status_code == 200
+        data = json.loads(response.data)
+        assert data["success"][0] is False
+        mock_karaoke.queue_manager.enqueue.assert_not_called()
         mock_karaoke.audit_log.record.assert_not_called()
 
 

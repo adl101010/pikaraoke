@@ -129,6 +129,20 @@
 	{% endfor %}
 </div>
 
+{# Honeypot: invisible to real users (hidden, unreachable by keyboard/screen
+   reader, nofollow so well-behaved crawlers skip it) but a naive scraper that
+   blindly follows every link will trigger it and get its IP flagged.
+   Deliberately not wired to any client-side JS -- a plain link, so nothing
+   (like a confirm dialog) can get in the way of a direct GET reaching it. #}
+<a
+	href="{{ url_for('files.honeypot') }}"
+	style="position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden;"
+	tabindex="-1"
+	aria-hidden="true"
+	rel="nofollow"
+	>Add to queue</a
+>
+
 {{ pagination.links }} {{ pagination.info }}
 <table>
 	{% for song in songs %}

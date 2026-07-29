@@ -14,7 +14,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.constants import ITUNES_COUNTRIES
-from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.current_app import get_client_ip, get_karaoke_instance, get_site_name, is_admin
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
 _ = flask_babel.gettext
@@ -38,6 +38,19 @@ def _format_icon(song_path: str, db_format: str | None) -> str | None:
 
 
 files_bp = Blueprint("files", __name__)
+
+
+@files_bp.route("/browse/trap", methods=["GET"])
+def honeypot():
+    """Invisible link only a bot blindly clicking every link would follow.
+
+    Flags the requesting IP so future queue/playback actions from it are
+    silently no-op'd elsewhere. Always responds like a normal page so the
+    bot gets no signal it's been caught.
+    """
+    k = get_karaoke_instance()
+    k.ip_blocklist.block(get_client_ip(), "Followed the Browse page honeypot link")
+    return redirect(url_for("files.browse"))
 
 
 class SongReferrerQuery(Schema):

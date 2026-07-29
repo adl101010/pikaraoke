@@ -88,6 +88,19 @@ def sync_library():
     return jsonify({"status": "already_syncing"})
 
 
+@admin_bp.route("/unblock_ip/<ip_address>")
+def unblock_ip(ip_address):
+    """Remove an IP from the honeypot blocklist."""
+    if not is_admin():
+        flash(_("You don't have permission to do that"), "is-danger")
+        return redirect(url_for("info.info"))
+    k = get_karaoke_instance()
+    k.ip_blocklist.unblock(ip_address)
+    # MSG: Message shown after unblocking a flagged IP address.
+    flash(_("Unblocked %s") % ip_address, "is-success")
+    return redirect(url_for("info.info"))
+
+
 @admin_bp.route("/quit")
 def quit():
     """Exit the PiKaraoke application."""

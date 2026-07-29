@@ -603,6 +603,50 @@
 			<hr class="my-0">
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Blocked IPs section of preferences #}{% trans %}Blocked IPs{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey mb-2">
+						{# MSG: Help text explaining the honeypot-based IP blocklist. #}
+						{% trans %}IPs that followed the invisible trap link on the Browse page, or sent queue/playback requests with no name attached. Blocked silently -- they get no error, the action just doesn't happen.{% endtrans %}
+					</p>
+					{% if blocked_ips %}
+					<table class="table is-striped is-fullwidth is-narrow">
+						<thead>
+							<tr>
+								{# MSG: Blocked IPs table column header for the IP address. #}
+								<th>{% trans %}IP Address{% endtrans %}</th>
+								{# MSG: Blocked IPs table column header for when it was blocked. #}
+								<th>{% trans %}Blocked At{% endtrans %}</th>
+								{# MSG: Blocked IPs table column header for the unblock action. #}
+								<th></th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for entry in blocked_ips %}
+							<tr>
+								<td>{{ entry.ip_address }}</td>
+								<td class="is-size-7">{{ entry.blocked_at }}</td>
+								<td>
+									<a class="has-text-danger is-size-7" href="{{ url_for('admin.unblock_ip', ip_address=entry.ip_address) }}">
+										{# MSG: Link to remove an IP from the blocklist. #}
+										{% trans %}Unblock{% endtrans %}
+									</a>
+								</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+					{% else %}
+					<p class="has-text-grey">{% trans %}No IPs blocked.{% endtrans %}</p>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 				{# MSG: Title text for the Score Phrases section of preferences #}
 				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>

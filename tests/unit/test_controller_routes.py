@@ -1,4 +1,5 @@
-"""Tests for playback controller routes: admin gating and audit logging."""
+"""Tests for playback controller routes: admin gating, audit logging, and
+the honeypot/no-identity blocking of pause/skip/transpose/volume."""
 
 from unittest.mock import MagicMock, patch
 
@@ -26,6 +27,13 @@ def app():
 @pytest.fixture
 def client(app):
     return app.test_client()
+
+
+def _unblocked_karaoke():
+    """A MagicMock karaoke instance with the block check passing through."""
+    k = MagicMock()
+    k.ip_blocklist.is_blocked.return_value = False
+    return k
 
 
 class TestSkipRoute:
@@ -78,7 +86,7 @@ class TestAuditLogging:
     def test_pause_logs_paused_when_currently_playing(
         self, mock_gettext, mock_broadcast, mock_get_instance, client
     ):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_karaoke.playback_controller.is_paused = False
         mock_karaoke.playback_controller.now_playing = "Song A"
         mock_get_instance.return_value = mock_karaoke
@@ -95,7 +103,7 @@ class TestAuditLogging:
     def test_pause_logs_resumed_when_currently_paused(
         self, mock_gettext, mock_broadcast, mock_get_instance, client
     ):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_karaoke.playback_controller.is_paused = True
         mock_karaoke.playback_controller.now_playing = "Song A"
         mock_get_instance.return_value = mock_karaoke
@@ -109,27 +117,10 @@ class TestAuditLogging:
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
     @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
-    def test_pause_without_user_param_logs_empty_string(
-        self, mock_gettext, mock_broadcast, mock_get_instance, client
-    ):
-        mock_karaoke = MagicMock()
-        mock_karaoke.playback_controller.is_paused = False
-        mock_karaoke.playback_controller.now_playing = "Song A"
-        mock_get_instance.return_value = mock_karaoke
-
-        client.get("/pause")
-
-        mock_karaoke.audit_log.record.assert_called_once_with(
-            "", "Paused playback", "Song A", "127.0.0.1"
-        )
-
-    @patch("pikaraoke.routes.controller.get_karaoke_instance")
-    @patch("pikaraoke.routes.controller.broadcast_event")
-    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
     def test_transpose_logs_semitones_and_song(
         self, mock_gettext, mock_broadcast, mock_get_instance, client
     ):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_karaoke.playback_controller.now_playing = "Song A"
         mock_get_instance.return_value = mock_karaoke
 
@@ -143,7 +134,7 @@ class TestAuditLogging:
     @patch("pikaraoke.routes.controller.broadcast_event")
     @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
     def test_volume_logs_value(self, mock_gettext, mock_broadcast, mock_get_instance, client):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_get_instance.return_value = mock_karaoke
 
         client.get("/volume/0.5?user=Dana")
@@ -156,7 +147,7 @@ class TestAuditLogging:
     @patch("pikaraoke.routes.controller.broadcast_event")
     @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
     def test_vol_up_logs(self, mock_gettext, mock_broadcast, mock_get_instance, client):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_get_instance.return_value = mock_karaoke
 
         client.get("/vol_up?user=Eve")
@@ -169,7 +160,7 @@ class TestAuditLogging:
     @patch("pikaraoke.routes.controller.broadcast_event")
     @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
     def test_vol_down_logs(self, mock_gettext, mock_broadcast, mock_get_instance, client):
-        mock_karaoke = MagicMock()
+        mock_karaoke = _unblocked_karaoke()
         mock_get_instance.return_value = mock_karaoke
 
         client.get("/vol_down?user=Eve")
@@ -188,3 +179,61 @@ class TestAuditLogging:
         client.get("/restart")
 
         mock_karaoke.audit_log.record.assert_not_called()
+
+
+class TestActionBlocking:
+    """A blocked IP or a request with no user identity silently no-ops."""
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    def test_pause_without_user_param_is_blocked(self, mock_broadcast, mock_get_instance, client):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.is_paused = False
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/pause")
+
+        assert response.status_code == 302
+        mock_karaoke.playback_controller.pause.assert_not_called()
+        mock_karaoke.audit_log.record.assert_not_called()
+        mock_broadcast.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    def test_pause_with_whitespace_only_user_is_blocked(
+        self, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_get_instance.return_value = mock_karaoke
+
+        client.get("/pause?user=%20%20")  # "  " (spaces only)
+
+        mock_karaoke.playback_controller.pause.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    def test_flagged_ip_is_blocked_even_with_a_user(
+        self, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.ip_blocklist.is_blocked.return_value = True
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/vol_up?user=RealPerson")
+
+        assert response.status_code == 302
+        mock_karaoke.vol_up.assert_not_called()
+        mock_karaoke.audit_log.record.assert_not_called()
+        mock_broadcast.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    def test_unflagged_ip_with_user_is_not_blocked(
+        self, mock_broadcast, mock_get_instance, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_get_instance.return_value = mock_karaoke
+
+        client.get("/vol_up?user=RealPerson")
+
+        mock_karaoke.vol_up.assert_called_once()

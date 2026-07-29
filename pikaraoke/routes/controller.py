@@ -4,7 +4,13 @@ import flask_babel
 from flask import flash, redirect, request, url_for
 from flask_smorest import Blueprint
 
-from pikaraoke.lib.current_app import broadcast_event, get_client_ip, get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import (
+    broadcast_event,
+    get_client_ip,
+    get_karaoke_instance,
+    is_action_blocked,
+    is_admin,
+)
 
 _ = flask_babel.gettext
 
@@ -35,18 +41,16 @@ def skip():
 def pause():
     """Toggle pause/resume playback."""
     k = get_karaoke_instance()
+    user = request.args.get("user", "")
+    if is_action_blocked(k, user):
+        return redirect(url_for("home.home"))
     if k.playback_controller.is_paused:
         action = _("Resumed playback")
         broadcast_event("play")
     else:
         action = _("Paused playback")
         broadcast_event("pause")
-    k.audit_log.record(
-        request.args.get("user", ""),
-        action,
-        k.playback_controller.now_playing or "",
-        get_client_ip(),
-    )
+    k.audit_log.record(user, action, k.playback_controller.now_playing or "", get_client_ip())
     k.playback_controller.pause()
     return redirect(url_for("home.home"))
 
@@ -55,8 +59,11 @@ def pause():
 def transpose(semitones):
     """Transpose (pitch shift) the current song."""
     k = get_karaoke_instance()
+    user = request.args.get("user", "")
+    if is_action_blocked(k, user):
+        return redirect(url_for("home.home"))
     k.audit_log.record(
-        request.args.get("user", ""),
+        user,
         _("Changed key"),
         "%s semitones -- %s" % (semitones, k.playback_controller.now_playing or ""),
         get_client_ip(),
@@ -79,9 +86,10 @@ def restart():
 def volume(volume):
     """Set the playback volume."""
     k = get_karaoke_instance()
-    k.audit_log.record(
-        request.args.get("user", ""), _("Changed volume"), str(volume), get_client_ip()
-    )
+    user = request.args.get("user", "")
+    if is_action_blocked(k, user):
+        return redirect(url_for("home.home"))
+    k.audit_log.record(user, _("Changed volume"), str(volume), get_client_ip())
     broadcast_event("volume", volume)
     k.volume_change(float(volume))
     return redirect(url_for("home.home"))
@@ -91,7 +99,10 @@ def volume(volume):
 def vol_up():
     """Increase volume by 10%."""
     k = get_karaoke_instance()
-    k.audit_log.record(request.args.get("user", ""), _("Increased volume"), "", get_client_ip())
+    user = request.args.get("user", "")
+    if is_action_blocked(k, user):
+        return redirect(url_for("home.home"))
+    k.audit_log.record(user, _("Increased volume"), "", get_client_ip())
     broadcast_event("volume", "up")
     k.vol_up()
     return redirect(url_for("home.home"))
@@ -101,7 +112,10 @@ def vol_up():
 def vol_down():
     """Decrease volume by 10%."""
     k = get_karaoke_instance()
-    k.audit_log.record(request.args.get("user", ""), _("Decreased volume"), "", get_client_ip())
+    user = request.args.get("user", "")
+    if is_action_blocked(k, user):
+        return redirect(url_for("home.home"))
+    k.audit_log.record(user, _("Decreased volume"), "", get_client_ip())
     broadcast_event("volume", "down")
     k.vol_down()
     return redirect(url_for("home.home"))

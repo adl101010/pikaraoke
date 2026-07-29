@@ -15,6 +15,7 @@ from pikaraoke.lib.current_app import (
     get_client_ip,
     get_karaoke_instance,
     get_site_name,
+    is_action_blocked,
     is_admin,
 )
 
@@ -180,9 +181,15 @@ def queue_edit(query):
 
 def _do_enqueue(song: str, user: str) -> str:
     k = get_karaoke_instance()
+    song_title = k.song_manager.display_name_from_path(song)
+    if is_action_blocked(k, user):
+        # Deliberately generic -- avoids revealing the anti-bot mechanism to
+        # whatever's on the other end of the request.
+        return json.dumps(
+            {"song": song_title, "success": [False, _("Song could not be added to the queue")]}
+        )
     rc = k.queue_manager.enqueue(song, user)
     broadcast_event("queue_update")
-    song_title = k.song_manager.display_name_from_path(song)
     if rc[0]:
         k.audit_log.record(user, _("Queued song"), song_title, get_client_ip())
     return json.dumps({"song": song_title, "success": rc})

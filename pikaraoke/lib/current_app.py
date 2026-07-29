@@ -58,6 +58,21 @@ def get_client_ip() -> str:
     return request.remote_addr or "Unknown"
 
 
+def is_action_blocked(k: Karaoke, user: str) -> bool:
+    """Check whether a party-disrupting action (queue/playback) should be
+    silently no-op'd instead of performed.
+
+    Blocks on two signals, both meant to catch bots rather than real guests:
+    - The requesting IP tripped the Browse page honeypot.
+    - No display name was sent at all -- every real browser has one by the
+      time any button is clickable, since base.html prompts for it on the
+      first page load. A request with none skipped that entirely.
+    """
+    if k.ip_blocklist.is_blocked(get_client_ip()):
+        return True
+    return not user or not user.strip()
+
+
 def get_site_name() -> str:
     """Get the site name from the current app's configuration
     This function returns the site name stored in the current app's configuration.
