@@ -3,7 +3,11 @@
    Based on bulmaswatch dark theme
    =================================== */
 
-/* Self-hosted so the app doesn't depend on an internet connection to Google Fonts. */
+/* @import must come before all other rules (besides @charset) or browsers
+   ignore it. Classic still pulls Lato from Google Fonts, same as the
+   original repo; Dark/Light use the self-hosted More Sugar below instead. */
+@import url("https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;700&display=swap");
+
 @font-face {
 	font-family: "More Sugar";
 	src: url("fonts/more-sugar-regular.ttf") format("truetype");
@@ -52,6 +56,9 @@
 	--dark-on-link: #14201F;
 	--dark-on-warning: #2B1B04;
 	--dark-on-danger: #2B1004;
+
+	--font-heading: "More Sugar", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	--font-body: "More Sugar Thin", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
 :root[data-theme="light"] {
@@ -78,6 +85,39 @@
 	--dark-on-link: #FFF8F2;
 	--dark-on-warning: #FFF8F2;
 	--dark-on-danger: #FFF8F2;
+
+	--font-heading: "More Sugar", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	--font-body: "More Sugar Thin", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
+/* The original repo's default palette, before Neon Tiki/Daylight Lounge. */
+:root[data-theme="classic"] {
+	--dark-bg-primary: #1f2424;
+	--dark-bg-secondary: #282f2f;
+	--dark-bg-tertiary: #343c3d;
+
+	--dark-text-primary: #ffffff;
+	--dark-text-secondary: #f2f2f2;
+	--dark-text-muted: #8c9b9d;
+	--dark-text-light: #dbdee0;
+
+	--dark-border: #5e6d6f;
+	--dark-border-light: #8c9b9d;
+
+	--dark-primary: #375a7f;
+	--dark-link: #1abc9c;
+	--dark-link-hover: #1dd2af;
+	--dark-info: #3298dc;
+	--dark-success: #2ecc71;
+	--dark-warning: #f1b70e;
+	--dark-danger: #e74c3c;
+
+	--dark-on-link: #ffffff;
+	--dark-on-warning: rgba(0, 0, 0, 0.7);
+	--dark-on-danger: #ffffff;
+
+	--font-heading: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	--font-body: "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
 /* ===================================
@@ -89,7 +129,7 @@ html {
 }
 
 body {
-	font-family: "More Sugar Thin", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	font-family: var(--font-body);
 	color: var(--dark-text-primary);
 	background-color: var(--dark-bg-primary);
 }
@@ -105,13 +145,13 @@ h5,
 h6,
 .title,
 .subtitle {
-	font-family: "More Sugar", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	font-family: var(--font-heading);
 	color: var(--dark-text-secondary);
 }
 
 /* The now-playing song title on the home page counts as a heading too. */
 #now-playing {
-	font-family: "More Sugar", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	font-family: var(--font-heading);
 }
 
 h6 {
