@@ -114,6 +114,12 @@ class KaraokeDatabase:
             ).fetchone()
             return row[0] if row else None
 
+    def get_play_counts(self) -> dict[str, int]:
+        """Return a map of file_path -> play_count for every song in the library."""
+        with self._lock:
+            rows = self._conn.execute("SELECT file_path, play_count FROM songs").fetchall()
+            return {row["file_path"]: row["play_count"] for row in rows}
+
     def get_top_songs(self, limit: int = 10) -> list[dict]:
         """Return the most-played songs, highest play_count first.
 

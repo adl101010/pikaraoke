@@ -14,7 +14,12 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.constants import ITUNES_COUNTRIES
-from pikaraoke.lib.current_app import get_client_ip, get_karaoke_instance, get_site_name, is_admin
+from pikaraoke.lib.current_app import (
+    get_client_ip,
+    get_karaoke_instance,
+    get_site_name,
+    is_admin,
+)
 from pikaraoke.lib.metadata_parser import youtube_id_suffix
 
 _ = flask_babel.gettext
@@ -100,10 +105,15 @@ def browse():
                     result.append(song)
         available_songs = result
 
-    if request.args.get("sort") == "date":
+    play_counts = k.db.get_play_counts()
+    sort_param = request.args.get("sort")
+    if sort_param == "date":
         songs = sorted(available_songs, key=lambda x: os.path.getmtime(x))
         songs.reverse()
         sort_order = "Date"
+    elif sort_param == "popularity":
+        songs = sorted(available_songs, key=lambda x: play_counts.get(x, 0), reverse=True)
+        sort_order = "Popularity"
     else:
         songs = available_songs
         sort_order = "Alphabetical"
@@ -141,6 +151,7 @@ def browse():
         # MSG: Title of the files page.
         title=_("Browse"),
         songs=songs[start_index : start_index + results_per_page],
+        play_counts=play_counts,
         admin=is_admin(),
         current_url=current_url,
     )

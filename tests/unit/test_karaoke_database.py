@@ -247,6 +247,26 @@ class TestRecordPlay:
         assert row[0] == 0
 
 
+class TestGetPlayCounts:
+    def test_empty_when_no_songs(self, db):
+        assert db.get_play_counts() == {}
+
+    def test_includes_unplayed_songs_at_zero(self, db):
+        db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])
+        assert db.get_play_counts() == {"/songs/test.mp4": 0}
+
+    def test_reflects_recorded_plays(self, db):
+        db.insert_songs(
+            [
+                {"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        db.record_play("/songs/a.mp4", "Alice")
+        db.record_play("/songs/a.mp4", "Alice")
+        assert db.get_play_counts() == {"/songs/a.mp4": 2, "/songs/b.mp4": 0}
+
+
 class TestGetTopSongs:
     def test_empty_when_nothing_played(self, db):
         db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])

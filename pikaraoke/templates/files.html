@@ -99,16 +99,27 @@
 <p class="is-flex is-justify-content-space-between">
 	<span class="is-flex-grow-1">
 		{% if sort_order == "Alphabetical" %} {# MSG: Label which displays that the songs are currently sorted by
-		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %} |
+		alphabetical order. #} {% trans %}Sorted Alphabetically{% endtrans %}
+		{% else %}
+		<a href="{{ url_for('files.browse') }}">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
+			Alphabetical{% endtrans %}
+		</a>
+		{% endif %} |
+		{% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
+		date. #} {% trans %}Sorted by date{% endtrans %}
+		{% else %}
 		<a href="{{ url_for('files.browse') }}?sort=date">
 			{# MSG: Button which changes how the songs are sorted so they become sorted by date. #} {% trans %}Sort by
 			Date{% endtrans %}
 		</a>
-		{% endif %} {% if sort_order == "Date" %} {# MSG: Label which displays that the songs are currently sorted by
-		date. #} {% trans %}Sorted by date{% endtrans %} |
-		<a href="{{ url_for('files.browse') }}">
-			{# MSG: Button which changes how the songs are sorted so they become sorted by name. #} {% trans %}Sort by
-			Alphabetical{% endtrans %}
+		{% endif %} |
+		{% if sort_order == "Popularity" %} {# MSG: Label which displays that the songs are currently sorted by
+		popularity (play count). #} {% trans %}Sorted by popularity{% endtrans %}
+		{% else %}
+		<a href="{{ url_for('files.browse') }}?sort=popularity">
+			{# MSG: Button which changes how the songs are sorted so they become sorted by popularity (play count). #} {% trans %}Sort by
+			Popularity{% endtrans %}
 		</a>
 		{% endif %}
 	</span>
@@ -159,6 +170,9 @@
 			</a>
 		</td>
 		<td class="break-word" style="padding-right: 0">{{display_name}}</td>
+		<td class="has-text-grey is-size-7" style="padding-right: 0; white-space: nowrap;">
+			{% trans count=play_counts.get(song, 0) %}{{ count }} play{% pluralize %}{{ count }} plays{% endtrans %}
+		</td>
 		{% if admin %}
 		<td style="padding-right: 0">
 			<a
