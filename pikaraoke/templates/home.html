@@ -14,10 +14,20 @@
 		});
 	}
 
+	var lastQueue = [];
+	var currentSingerUser = null;
+
 	function loadActiveSingers() {
 		$.get('{{ url_for("queue.get_queue") }}', function (data) {
-			handleActiveSingers(JSON.parse(data));
+			lastQueue = JSON.parse(data);
+			renderActiveSingers();
 		});
+	}
+
+	function renderActiveSingers() {
+		var combined = currentSingerUser ? [{ user: currentSingerUser }] : [];
+		combined = combined.concat(lastQueue);
+		handleActiveSingers(combined);
 	}
 
 	function handleActiveSingers(queue) {
@@ -32,8 +42,8 @@
 		});
 
 		if (counts.length === 0) {
-			// {# MSG: Message shown in the active singers list when no one has queued a song. #}
-			$("#active-singers").html('<p class="has-text-grey">' + {{ _("No one has queued a song yet.") | tojson }} + '</p>');
+			// {# MSG: Message shown in the active singers list when no one is singing or queued. #}
+			$("#active-singers").html('<p class="has-text-grey">' + {{ _("No active singers yet.") | tojson }} + '</p>');
 			return;
 		}
 
@@ -51,6 +61,9 @@
 
 	function handleNowPlaying(np) {
 		console.log(np);
+		currentSingerUser = np.now_playing ? np.now_playing_user : null;
+		renderActiveSingers();
+
 		if (np.now_playing) {
 			var nowPlayingHtml = `<p style="margin-bottom: 5px">${np.now_playing}</p>
           <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${np.now_playing_user}</p>`;
