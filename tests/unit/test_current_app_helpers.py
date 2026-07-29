@@ -39,6 +39,27 @@ def test_strips_whitespace_from_forwarded_header():
     assert response.data.decode() == "203.0.113.9"
 
 
+def test_prefers_cf_connecting_ip_over_x_forwarded_for():
+    client = _app().test_client()
+    response = client.get(
+        "/probe",
+        headers={"CF-Connecting-IP": "198.51.100.7", "X-Forwarded-For": "203.0.113.5, 10.0.0.1"},
+    )
+    assert response.data.decode() == "198.51.100.7"
+
+
+def test_uses_cf_connecting_ip_when_no_forwarded_header():
+    client = _app().test_client()
+    response = client.get("/probe", headers={"CF-Connecting-IP": "198.51.100.7"})
+    assert response.data.decode() == "198.51.100.7"
+
+
+def test_strips_whitespace_from_cf_connecting_ip():
+    client = _app().test_client()
+    response = client.get("/probe", headers={"CF-Connecting-IP": "  198.51.100.7  "})
+    assert response.data.decode() == "198.51.100.7"
+
+
 def _blocked_app(is_ip_blocked, user):
     app = Flask(__name__)
     k = MagicMock()

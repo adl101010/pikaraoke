@@ -47,11 +47,19 @@ def get_admin_password() -> str:
 
 
 def get_client_ip() -> str:
-    """Get the requesting client's IP address, for the audit log.
+    """Get the requesting client's IP address, for the audit log and honeypot blocklist.
 
-    Prefers the first hop in X-Forwarded-For (set by a reverse proxy) over
+    Prefers CF-Connecting-IP (set by Cloudflare's edge -- the authoritative real
+    visitor IP when running behind Cloudflare, including Cloudflare Tunnel, where
+    it's also trustworthy: with Tunnel the origin has no exposed port, so every
+    request is guaranteed to have passed through Cloudflare's edge first, which
+    sets this header itself -- nothing can reach the origin directly to forge it).
+    Falls back to the first hop in X-Forwarded-For (a generic reverse proxy), then
     request.remote_addr, which would otherwise just be the proxy's own IP.
     """
+    cf_connecting_ip = request.headers.get("CF-Connecting-IP")
+    if cf_connecting_ip:
+        return cf_connecting_ip.strip()
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
