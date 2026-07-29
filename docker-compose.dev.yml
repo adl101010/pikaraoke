@@ -1,15 +1,15 @@
 services:
   pikaraoke:
-    image: ghcr.io/adl101010/pikaraoke:stable
-    container_name: testkar
+    image: ghcr.io/adl101010/pikaraoke:dev
+    container_name: testkar-dev
     ports:
-      - "8844:8844"
+      - "8845:8845"
     volumes:
-      - testkar_songs:/app/pikaraoke-songs
-      - testkar_config:/home/pikaraoke/.pikaraoke
+      - testkar_songs_dev:/app/pikaraoke-songs
+      - testkar_config_dev:/home/pikaraoke/.pikaraoke
     command:
       - "-p"
-      - "8844"
+      - "8845"
       - "--high-quality"
       - "--disable-bg-music"
       - "--disable-bg-video"
@@ -17,7 +17,7 @@ services:
       - "--admin-password"
       - "${ADMIN_PASSWORD:-bacon}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8844/"]
+      test: ["CMD", "curl", "-f", "http://localhost:8845/"]
       interval: 30s
       timeout: 3s
       start_period: 40s
@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  testkar_songs:
+  testkar_songs_dev:
     driver: local
-  testkar_config:
+  testkar_config_dev:
     driver: local

@@ -3,7 +3,8 @@ name: Publish Docker image to GHCR
 on:
   push:
     branches:
-      - fix/admin-auth-and-player-controls
+      - dev
+      - main
   workflow_dispatch: {}
 
 jobs:
@@ -29,6 +30,28 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    # dev branch -> :dev (+ :dev-<sha> for traceability)
+    # main branch -> :stable, :latest (+ :<sha>)
+    - name: Compute image tags
+      id: tags
+      run: |
+        if [ "${{ github.ref_name }}" = "main" ]; then
+          {
+            echo "tags<<EOF"
+            echo "ghcr.io/${{ github.repository }}:stable"
+            echo "ghcr.io/${{ github.repository }}:latest"
+            echo "ghcr.io/${{ github.repository }}:${{ github.sha }}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        else
+          {
+            echo "tags<<EOF"
+            echo "ghcr.io/${{ github.repository }}:dev"
+            echo "ghcr.io/${{ github.repository }}:dev-${{ github.sha }}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+        fi
+
     - name: Build and push
       uses: docker/build-push-action@v6
       with:
@@ -36,9 +59,7 @@ jobs:
         file: build_scripts/docker/Dockerfile
         platforms: linux/amd64,linux/arm64
         push: true
-        tags: |
-          ghcr.io/${{ github.repository }}:latest
-          ghcr.io/${{ github.repository }}:${{ github.sha }}
+        tags: ${{ steps.tags.outputs.tags }}
         cache-from: |
           type=gha,scope=docker-build
           type=gha,scope=docker-build-arm64
