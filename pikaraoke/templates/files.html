@@ -15,6 +15,16 @@
 
 		$("a.add-song-link").click(function (e) {
 			e.preventDefault();
+
+			var title = $(this).data("title");
+			var confirmMsg = (
+				// {# MSG: Confirmation dialog before adding a song to the queue from the browse list. SONG_TITLE is replaced with the song's title. #}
+				{{ _("Add SONG_TITLE to the queue?") | tojson }}
+			).replace("SONG_TITLE", title);
+			if (!window.confirm(confirmMsg)) {
+				return;
+			}
+
 			// The name prompt already ran on page load (base.html), so the cookie is set by now.
 			var user = Cookies.get("user");
 			$.get(this.href + encodeURIComponent(user), function (data) {
@@ -129,6 +139,7 @@
 			<a
 				class="add-song-link has-text-weight-bold has-text-success"
 				title="Add '{{display_name}}' to queue"
+				data-title="{{display_name}}"
 				href="{{url_for('queue.enqueue')}}?song={{url_escape(song.encode('utf-8','surrogateescape'))}}&user="
 				><i class="icon icon-list-add"></i>
 			</a>
