@@ -25,11 +25,11 @@
 }
 
 .control-box a {
-  color: #cccccc;
+  color: var(--dark-text-muted);
 }
 
 .control-box a:hover {
-  color: #74ccb3;
+  color: var(--dark-link);
 }
 
 .pagination {
@@ -57,7 +57,7 @@
   margin-bottom: 0px !important;
 }
 .pagination-page-info b {
-  color: white;
+  color: var(--dark-text-primary);
   background-color: transparent;
   font-size: 100%;
 }
