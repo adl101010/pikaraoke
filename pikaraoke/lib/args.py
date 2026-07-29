@@ -315,7 +315,7 @@ def parse_pikaraoke_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--limit-user-songs-by",
-        help=f"Limit the number of songs a user can add to queue. User name 'Pikaraoke' is always unlimited (default: {_DEFAULTS['limit_user_songs_by']} = unlimited)",
+        help=f"Limit the number of songs a user can have queued or playing at once, 0 = unlimited. User name 'Pikaraoke' is always unlimited (default: {_DEFAULTS['limit_user_songs_by']})",
         default=None,
         required=False,
     )
