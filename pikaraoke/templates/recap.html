@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block header %}
+	<h1>
+		{% block title %}
+			{# MSG: Title of the recap page. #}
+			{% trans %}Recap{% endtrans %}
+		{% endblock %}
+	</h1>
+{% endblock %}
+
+{% block content %}
+
+{% if not session %}
+	<div class="card">
+		<div class="card-content">
+			<div class="content has-text-centered">
+				<p class="has-text-grey">
+					{# MSG: Shown on the recap page when nobody has ever sung anything. #}
+					{% trans %}Nobody's sung anything yet. Get the party started!{% endtrans %}
+				</p>
+			</div>
+		</div>
+	</div>
+{% else %}
+	<div class="card">
+		<div class="card-content">
+			<div class="content has-text-centered">
+				{% if live %}
+				<p class="is-size-5 has-text-success has-text-weight-bold">
+					{# MSG: Badge shown when the session on the recap page is still ongoing. #}
+					{% trans %}Current Session{% endtrans %}
+				</p>
+				<p class="is-size-7 has-text-grey">
+					{# MSG: Start time of the ongoing session, e.g. "Started 2026-07-29 20:00:00". #}
+					{% trans started=session.started_at %}Started {{ started }}{% endtrans %}
+				</p>
+				{% elif is_latest %}
+				<p class="is-size-5 has-text-weight-bold">
+					{# MSG: Badge shown when the session on the recap page is the most recent, but no longer ongoing. #}
+					{% trans %}Last Session{% endtrans %}
+				</p>
+				<p class="is-size-7 has-text-grey">{{ session.started_at }} &ndash; {{ session.ended_at }}</p>
+				{% else %}
+				<p class="is-size-5 has-text-weight-bold">
+					{# MSG: Badge shown when viewing a specific past session, not the most recent one. #}
+					{% trans %}Session{% endtrans %}
+				</p>
+				<p class="is-size-7 has-text-grey">{{ session.started_at }} &ndash; {{ session.ended_at }}</p>
+				{% endif %}
+				<p class="is-size-2 has-text-warning has-text-weight-bold">{{ session.play_count }}</p>
+				<p>
+					{# MSG: Count of songs played in this session, e.g. "songs sung". #}
+					{% trans %}songs sung{% endtrans %}
+				</p>
+				<p class="is-size-4">
+					{# MSG: Count of distinct singers in this session. #}
+					{% trans count=session.singer_count %}{{ count }} singer{% pluralize %}{{ count }} singers{% endtrans %}
+				</p>
+				{% if session.top_singers %}
+				<p class="is-size-5 has-text-success">
+					{# MSG: The singer with the most songs in this session, e.g. "MVP: Alice (4 songs)". #}
+					{% trans singer=session.top_singers[0][0], count=session.top_singers[0][1] %}MVP: {{ singer }} ({{ count }} songs){% endtrans %}
+				</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+
+	<div class="card">
+		<header class="card-header py-3 px-5">
+			<h3 class="m-0">{# MSG: Title for the list of songs sung in this session. #}{% trans %}Songs{% endtrans %}</h3>
+		</header>
+		<div class="card-content">
+			<div class="content">
+				<table class="table is-striped is-fullwidth is-narrow">
+					<thead>
+						<tr>
+							<th>{% trans %}#{% endtrans %}</th>
+							<th>{% trans %}Song{% endtrans %}</th>
+							<th>{% trans %}Plays{% endtrans %}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for entry in top_songs %}
+						<tr>
+							<td>{{ loop.index }}</td>
+							<td>{{ entry.display_name }}</td>
+							<td>{{ entry.count }}</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+
+	{% if session.top_singers %}
+	<div class="card">
+		<header class="card-header py-3 px-5">
+			<h3 class="m-0">{# MSG: Title for the list of singers in this session. #}{% trans %}Singers{% endtrans %}</h3>
+		</header>
+		<div class="card-content">
+			<div class="content">
+				<table class="table is-striped is-fullwidth is-narrow">
+					<thead>
+						<tr>
+							<th>{% trans %}#{% endtrans %}</th>
+							<th>{% trans %}Singer{% endtrans %}</th>
+							<th>{% trans %}Songs{% endtrans %}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for user, count in session.top_singers %}
+						<tr>
+							<td>{{ loop.index }}</td>
+							<td>{{ user }}</td>
+							<td>{{ count }}</td>
+						</tr>
+						{% endfor %}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	</div>
+	{% endif %}
+{% endif %}
+
+{% endblock %}

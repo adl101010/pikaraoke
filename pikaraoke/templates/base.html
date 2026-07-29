@@ -258,6 +258,11 @@
           {# MSG: Navigation link for the page where the user can add existing songs to the queue. #}
           <span>{% trans %}Browse{% endtrans %}</span>
         </a>
+        <a id="recap" class="navbar-item" href="{{ url_for('recap.recap') }}">
+          <i class="icon icon-music" title="Recap"></i>
+          {# MSG: Navigation link for tonight's recap page showing songs and singers so far. #}
+          <span>{% trans %}Recap{% endtrans %}</span>
+        </a>
         <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
           <span aria-hidden="true"></span>
           <span aria-hidden="true"></span>

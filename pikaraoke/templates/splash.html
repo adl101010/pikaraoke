@@ -22,7 +22,10 @@
     translations: {
       socketConnectionLost: {{ _('Connection lost. Is the server still running?') | tojson }},
       unsupportedBrowser: {{ _('This browser is not fully supported. You may experience streaming issues. Please use Chrome/Safari/Firefox/Edge for best results.') | tojson }},
+      songsTonight: {{ _('songs tonight') | tojson }},
+      mvpLabel: {{ _('MVP') | tojson }},
     },
+    recapSummaryUrl: "{{ url_for('recap.recap_summary') }}",
     scorePhrasesUrl: "{{ url_for('splash.get_score_phrases') }}",
   };
 </script>
@@ -64,6 +67,10 @@
     <div id="hostap">
       {% for line in hostap_info %}{{ line }}<br />{% endfor %}
     </div>
+  </div>
+  <div id="recap-teaser" class="has-text-success is-size-6 stroke" style="display: none;">
+    <i class="icon icon-music" title="Recap"></i>
+    <span id="recap-teaser-text"></span>
   </div>
 </div>
 
@@ -228,8 +235,13 @@
     left: 0px;
     max-width: 50%;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: flex-end;
+  }
+  #recap-teaser {
+    flex-basis: 100%;
+    margin-top: 6px;
   }
   #bottom-container {
     bottom: 0px;

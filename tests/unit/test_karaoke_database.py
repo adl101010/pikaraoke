@@ -1,6 +1,7 @@
 """Unit tests for KaraokeDatabase."""
 
 import os
+import sqlite3
 
 import pytest
 
@@ -41,6 +42,15 @@ class TestInit:
 
     def test_empty_on_init(self, db):
         assert db.get_song_count() == 0
+
+    def test_play_events_table_exists(self, db):
+        tables = {
+            row[0]
+            for row in db._conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+        }
+        assert "play_events" in tables
 
 
 class TestGetAllSongPaths:
@@ -192,6 +202,158 @@ class TestIntegrityCheck:
         ok, msg = db.check_integrity()
         assert ok is True
         assert msg == "ok"
+
+
+class TestRecordPlay:
+    def test_increments_play_count(self, db):
+        db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])
+        db.record_play("/songs/test.mp4", "Alice")
+        db.record_play("/songs/test.mp4", "Alice")
+        row = db._conn.execute(
+            "SELECT play_count FROM songs WHERE file_path = ?", ("/songs/test.mp4",)
+        ).fetchone()
+        assert row[0] == 2
+
+    def test_sets_last_played_at(self, db):
+        db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])
+        db.record_play("/songs/test.mp4", "Alice")
+        row = db._conn.execute(
+            "SELECT last_played_at FROM songs WHERE file_path = ?", ("/songs/test.mp4",)
+        ).fetchone()
+        assert row[0] is not None
+
+    def test_no_error_on_missing_path(self, db):
+        db.record_play("/songs/nonexistent.mp4", "Alice")  # should not raise
+
+    def test_logs_a_play_event(self, db):
+        db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])
+        db.record_play("/songs/test.mp4", "Alice")
+        events = db.get_all_play_events()
+        assert len(events) == 1
+        assert events[0]["file_path"] == "/songs/test.mp4"
+        assert events[0]["user"] == "Alice"
+
+    def test_logs_play_event_even_when_song_missing_from_library(self, db):
+        db.record_play("/songs/nonexistent.mp4", "Alice")
+        events = db.get_all_play_events()
+        assert len(events) == 1
+        assert events[0]["file_path"] == "/songs/nonexistent.mp4"
+
+    def test_new_songs_start_at_zero(self, db):
+        db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])
+        row = db._conn.execute(
+            "SELECT play_count FROM songs WHERE file_path = ?", ("/songs/test.mp4",)
+        ).fetchone()
+        assert row[0] == 0
+
+
+class TestGetTopSongs:
+    def test_empty_when_nothing_played(self, db):
+        db.insert_songs([{"file_path": "/songs/test.mp4", "youtube_id": None, "format": "mp4"}])
+        assert db.get_top_songs() == []
+
+    def test_orders_by_play_count_descending(self, db):
+        db.insert_songs(
+            [
+                {"file_path": "/songs/a.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/b.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        db.record_play("/songs/a.mp4", "Alice")
+        db.record_play("/songs/b.mp4", "Alice")
+        db.record_play("/songs/b.mp4", "Alice")
+        results = db.get_top_songs()
+        assert [r["file_path"] for r in results] == ["/songs/b.mp4", "/songs/a.mp4"]
+
+    def test_respects_limit(self, db):
+        for i in range(5):
+            db.insert_songs(
+                [{"file_path": f"/songs/song{i}.mp4", "youtube_id": None, "format": "mp4"}]
+            )
+            db.record_play(f"/songs/song{i}.mp4", "Alice")
+        assert len(db.get_top_songs(limit=3)) == 3
+
+    def test_excludes_unplayed_songs(self, db):
+        db.insert_songs(
+            [
+                {"file_path": "/songs/played.mp4", "youtube_id": None, "format": "mp4"},
+                {"file_path": "/songs/unplayed.mp4", "youtube_id": None, "format": "mp4"},
+            ]
+        )
+        db.record_play("/songs/played.mp4", "Alice")
+        results = db.get_top_songs()
+        assert [r["file_path"] for r in results] == ["/songs/played.mp4"]
+
+
+class TestGetAllPlayEvents:
+    def test_empty_when_nothing_played(self, db):
+        assert db.get_all_play_events() == []
+
+    def test_returns_all_events(self, db):
+        db.record_play("/songs/a.mp4", "Alice")
+        db.record_play("/songs/b.mp4", "Bob")
+        events = db.get_all_play_events()
+        assert [e["file_path"] for e in events] == ["/songs/a.mp4", "/songs/b.mp4"]
+
+    def test_ordered_oldest_first(self, db):
+        with db._conn:
+            db._conn.execute(
+                "INSERT INTO play_events (file_path, user, played_at) VALUES (?, ?, ?)",
+                ("/songs/c.mp4", "Carol", "2026-01-01 12:00:00"),
+            )
+            db._conn.execute(
+                "INSERT INTO play_events (file_path, user, played_at) VALUES (?, ?, ?)",
+                ("/songs/a.mp4", "Alice", "2026-01-01 10:00:00"),
+            )
+            db._conn.execute(
+                "INSERT INTO play_events (file_path, user, played_at) VALUES (?, ?, ?)",
+                ("/songs/b.mp4", "Bob", "2026-01-01 11:00:00"),
+            )
+        events = db.get_all_play_events()
+        assert [e["file_path"] for e in events] == ["/songs/a.mp4", "/songs/b.mp4", "/songs/c.mp4"]
+
+
+class TestSchemaMigration:
+    def test_play_count_column_added_to_pre_existing_db(self, tmp_path):
+        db_path = str(tmp_path / "legacy.db")
+        # Simulate a database created before play_count/last_played_at existed.
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE songs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT UNIQUE NOT NULL,
+                youtube_id TEXT,
+                format TEXT NOT NULL,
+                artist TEXT,
+                title TEXT,
+                variant TEXT,
+                year INTEGER,
+                genre TEXT,
+                metadata_status TEXT DEFAULT 'pending',
+                enrichment_attempts INTEGER DEFAULT 0,
+                last_enrichment_attempt TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            """
+        )
+        conn.execute(
+            "INSERT INTO songs (file_path, youtube_id, format) VALUES (?, ?, ?)",
+            ("/songs/legacy.mp4", None, "mp4"),
+        )
+        conn.commit()
+        conn.close()
+
+        db = KaraokeDatabase(db_path)
+        try:
+            db.record_play("/songs/legacy.mp4", "Alice")
+            row = db._conn.execute(
+                "SELECT play_count FROM songs WHERE file_path = ?", ("/songs/legacy.mp4",)
+            ).fetchone()
+            assert row[0] == 1
+        finally:
+            db.close()
 
 
 class TestUnicodeFilenames:

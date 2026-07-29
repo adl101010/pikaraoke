@@ -481,6 +481,28 @@ const setupBackgroundMusicPlayer = () => {
   });
 }
 
+const recapPollIntervalMs = 60000;
+
+const updateRecapTeaser = () => {
+  $.getJSON(PikaraokeConfig.recapSummaryUrl, function (data) {
+    if (!data.active) {
+      $("#recap-teaser").hide();
+      return;
+    }
+    let text = `${data.play_count} ${PikaraokeConfig.translations.songsTonight}`;
+    if (data.top_singer) {
+      text += ` · ${PikaraokeConfig.translations.mvpLabel}: ${data.top_singer}`;
+    }
+    $("#recap-teaser-text").text(text);
+    $("#recap-teaser").show();
+  }).fail(() => {});
+};
+
+const setupRecapTeaser = () => {
+  updateRecapTeaser();
+  setInterval(updateRecapTeaser, recapPollIntervalMs);
+};
+
 const handleUnsupportedBrowser = () => {
   if (!isSupportedBrowser) {
     let modalContents = document.getElementById("permissions-modal-content");
@@ -699,6 +721,7 @@ $(function () {
   setupOverlayMenus();
   setupVideoPlayer();
   setupBackgroundMusicPlayer();
+  setupRecapTeaser();
 
   // Handle browser compatibility
   handleUnsupportedBrowser();

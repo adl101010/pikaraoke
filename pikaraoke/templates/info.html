@@ -647,6 +647,97 @@
 			<hr class="my-0">
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Lifetime Stats section of preferences #}{% trans %}Lifetime Stats{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey mb-2">
+						{# MSG: Help text explaining the lifetime stats section. #}
+						{% trans %}The most-played songs in the library since it was created.{% endtrans %}
+					</p>
+					{% if top_songs %}
+					<table class="table is-striped is-fullwidth is-narrow">
+						<thead>
+							<tr>
+								{# MSG: Lifetime stats table column header for the song's rank. #}
+								<th>{% trans %}#{% endtrans %}</th>
+								{# MSG: Lifetime stats table column header for the song title. #}
+								<th>{% trans %}Song{% endtrans %}</th>
+								{# MSG: Lifetime stats table column header for how many times it's been played. #}
+								<th>{% trans %}Plays{% endtrans %}</th>
+								{# MSG: Lifetime stats table column header for when it was last played. #}
+								<th>{% trans %}Last Played{% endtrans %}</th>
+							</tr>
+						</thead>
+						<tbody>
+							{% for entry in top_songs %}
+							<tr>
+								<td>{{ loop.index }}</td>
+								<td>{{ filename_from_path(entry.file_path) }}</td>
+								<td>{{ entry.play_count }}</td>
+								<td class="is-size-7">{{ entry.last_played_at or "--" }}</td>
+							</tr>
+							{% endfor %}
+						</tbody>
+					</table>
+					{% else %}
+					<p class="has-text-grey">{% trans %}No songs played yet.{% endtrans %}</p>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Session History section of preferences #}{% trans %}Session History{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey mb-2">
+						{# MSG: Help text explaining the session history section. #}
+						{% trans %}Past karaoke sessions, most recent first. A session groups plays with no gap longer than an hour between them.{% endtrans %}
+					</p>
+					{% if session_history %}
+					<div style="overflow-x: auto; max-height: 360px; overflow-y: auto;">
+						<table class="table is-striped is-fullwidth is-narrow">
+							<thead>
+								<tr>
+									{# MSG: Session history table column header for the date/time range. #}
+									<th>{% trans %}When{% endtrans %}</th>
+									{# MSG: Session history table column header for how many songs were played. #}
+									<th>{% trans %}Songs{% endtrans %}</th>
+									{# MSG: Session history table column header for how many singers took part. #}
+									<th>{% trans %}Singers{% endtrans %}</th>
+									{# MSG: Session history table column header for the singer with the most songs. #}
+									<th>{% trans %}MVP{% endtrans %}</th>
+									<th></th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for entry in session_history %}
+								<tr>
+									<td class="is-size-7">
+										{{ entry.started_at }} &ndash; {{ entry.ended_at }}
+										{% if entry.live %}<span class="tag is-success is-light">{% trans %}Live{% endtrans %}</span>{% endif %}
+									</td>
+									<td>{{ entry.play_count }}</td>
+									<td>{{ entry.singer_count }}</td>
+									<td>{{ entry.top_singer or "--" }}</td>
+									<td><a href="{{ url_for('recap.recap', session=entry.started_at) }}">{% trans %}View{% endtrans %}</a></td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<p class="has-text-grey">{% trans %}No sessions yet.{% endtrans %}</p>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<div class="media-content">
 				{# MSG: Title text for the Score Phrases section of preferences #}
 				<h3 class="title m-0">{% trans %}Score phrases{% endtrans %}</h3>

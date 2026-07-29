@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS songs (
     metadata_status TEXT DEFAULT 'pending',
     enrichment_attempts INTEGER DEFAULT 0,
     last_enrichment_attempt TEXT,
+    play_count INTEGER NOT NULL DEFAULT 0,
+    last_played_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -35,6 +37,15 @@ CREATE TABLE IF NOT EXISTS metadata (
     key TEXT PRIMARY KEY,
     value TEXT
 );
+
+CREATE TABLE IF NOT EXISTS play_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    file_path TEXT NOT NULL,
+    user TEXT,
+    played_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_play_events_played_at ON play_events(played_at);
 """
 
 
@@ -67,6 +78,18 @@ class KaraokeDatabase:
         self._conn.executescript(_SCHEMA)
         with self._conn:
             self._conn.execute("PRAGMA user_version = 1")
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        """Add columns introduced after a database may already exist on disk."""
+        columns = {row[1] for row in self._conn.execute("PRAGMA table_info(songs)")}
+        with self._conn:
+            if "play_count" not in columns:
+                self._conn.execute(
+                    "ALTER TABLE songs ADD COLUMN play_count INTEGER NOT NULL DEFAULT 0"
+                )
+            if "last_played_at" not in columns:
+                self._conn.execute("ALTER TABLE songs ADD COLUMN last_played_at TEXT")
 
     # ------------------------------------------------------------------
     # Read operations
@@ -90,6 +113,24 @@ class KaraokeDatabase:
                 "SELECT format FROM songs WHERE file_path = ?", (file_path,)
             ).fetchone()
             return row[0] if row else None
+
+    def get_top_songs(self, limit: int = 10) -> list[dict]:
+        """Return the most-played songs, highest play_count first.
+
+        Songs that have never been played (play_count = 0) are excluded.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT file_path, artist, title, variant, play_count, last_played_at
+                FROM songs
+                WHERE play_count > 0
+                ORDER BY play_count DESC, last_played_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     # ------------------------------------------------------------------
     # Batch write operations (used by LibraryScanner)
@@ -164,6 +205,39 @@ class KaraokeDatabase:
     def update_path(self, old_path: str, new_path: str) -> None:
         """Update a single song's file path (UI-triggered rename)."""
         self.update_paths([(old_path, new_path)])
+
+    def record_play(self, file_path: str, user: str) -> None:
+        """Record a play: bumps the song's lifetime count and logs a play event.
+
+        The lifetime count update is a no-op if the path isn't in the library,
+        but the event is still logged -- it's a historical record of what was
+        played, independent of whether the song is still in the library.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                """
+                UPDATE songs
+                SET play_count = play_count + 1, last_played_at = CURRENT_TIMESTAMP
+                WHERE file_path = ?
+                """,
+                (file_path,),
+            )
+            self._conn.execute(
+                "INSERT INTO play_events (file_path, user) VALUES (?, ?)",
+                (file_path, user),
+            )
+
+    def get_all_play_events(self) -> list[dict]:
+        """Return the full play event history, oldest first.
+
+        Never pruned -- this is the source of truth sessions are derived
+        from, so history stays reconstructable indefinitely.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT file_path, user, played_at FROM play_events ORDER BY played_at ASC"
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     # ------------------------------------------------------------------
     # Metadata (app-level key-value store)

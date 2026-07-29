@@ -16,6 +16,7 @@ from pikaraoke.lib.current_app import (
     is_admin,
 )
 from pikaraoke.lib.get_platform import get_platform, is_linux
+from pikaraoke.lib.session_stats import compute_all_sessions, is_session_live
 
 _ = flask_babel.gettext
 
@@ -39,6 +40,22 @@ def info():
 
     audit_log_entries = k.audit_log.get_recent(100) if is_admin() else []
     blocked_ips = k.ip_blocklist.get_all() if is_admin() else []
+    top_songs = k.db.get_top_songs(10) if is_admin() else []
+
+    session_history = []
+    if is_admin():
+        sessions = compute_all_sessions(k.db.get_all_play_events())
+        session_history = [
+            {
+                "started_at": s.started_at,
+                "ended_at": s.ended_at,
+                "play_count": s.play_count,
+                "singer_count": s.singer_count,
+                "top_singer": s.top_singers[0][0] if s.top_singers else None,
+                "live": is_session_live(s) if s is sessions[-1] else False,
+            }
+            for s in reversed(sessions[-50:])
+        ]
 
     return render_template(
         "info.html",
@@ -94,6 +111,8 @@ def info():
         logo_version=int(os.path.getmtime(k.logo_path)),
         audit_log_entries=audit_log_entries,
         blocked_ips=blocked_ips,
+        top_songs=top_songs,
+        session_history=session_history,
     )
 
 

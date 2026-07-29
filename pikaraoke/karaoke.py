@@ -13,6 +13,7 @@ import qrcode
 from flask_babel import _
 from qrcode.image.pure import PyPNGImage
 
+from pikaraoke.lib.audit_log import AuditLog
 from pikaraoke.lib.download_manager import DownloadManager
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.ffmpeg import (
@@ -27,7 +28,6 @@ from pikaraoke.lib.get_platform import (
     get_platform,
     is_raspberry_pi,
 )
-from pikaraoke.lib.audit_log import AuditLog
 from pikaraoke.lib.ip_blocklist import IPBlocklist
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import LibraryScanner, ScanResult
@@ -619,7 +619,9 @@ class Karaoke:
                         song["file"], song["user"], song["semitones"]
                     )
 
-                    if not result.success and result.error:
+                    if result.success:
+                        self.db.record_play(song["file"], song["user"])
+                    elif result.error:
                         self.log_and_send(result.error, "danger")
 
                 self.playback_controller.log_output()
