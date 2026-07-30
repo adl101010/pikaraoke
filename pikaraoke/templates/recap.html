@@ -7,6 +7,20 @@
 			{% trans %}Recap{% endtrans %}
 		{% endblock %}
 	</h1>
+	<style>
+		.content table.recap-stats-table th,
+		.content table.recap-stats-table td {
+			text-align: center;
+			vertical-align: middle;
+		}
+		.content table.recap-stats-table td ul {
+			text-align: left;
+		}
+		.recap-stats-table .col-rank {
+			width: 2.5em;
+			font-size: 0.85em;
+		}
+	</style>
 {% endblock %}
 
 {% block content %}
@@ -78,20 +92,20 @@
 		</header>
 		<div class="card-content">
 			<div class="content">
-				<table class="table is-striped is-fullwidth is-narrow">
+				<table class="table is-striped is-fullwidth is-narrow recap-stats-table">
 					<thead>
 						<tr>
-							<th>{% trans %}#{% endtrans %}</th>
+							<th class="col-rank has-text-grey">{% trans %}#{% endtrans %}</th>
 							<th>{% trans %}Song{% endtrans %}</th>
-							<th>{% trans %}Plays{% endtrans %}</th>
 						</tr>
 					</thead>
 					<tbody>
 						{% for entry in top_songs %}
 						<tr>
-							<td>{{ loop.index }}</td>
-							<td>{{ entry.display_name }}</td>
-							<td>{{ entry.count }}</td>
+							<td class="col-rank has-text-grey">{{ loop.index }}</td>
+							<td>
+								{{ entry.display_name }}{% if entry.count > 1 %} <span class="has-text-grey is-size-7">&times;{{ entry.count }}</span>{% endif %}
+							</td>
 						</tr>
 						{% endfor %}
 					</tbody>
@@ -107,10 +121,10 @@
 		</header>
 		<div class="card-content">
 			<div class="content">
-				<table class="table is-striped is-fullwidth is-narrow">
+				<table class="table is-striped is-fullwidth is-narrow recap-stats-table">
 					<thead>
 						<tr>
-							<th>{% trans %}#{% endtrans %}</th>
+							<th class="col-rank has-text-grey">{% trans %}#{% endtrans %}</th>
 							<th>{% trans %}Singer{% endtrans %}</th>
 							<th>{% trans %}Songs{% endtrans %}</th>
 						</tr>
@@ -118,7 +132,7 @@
 					<tbody>
 						{% for user, count in session.top_singers %}
 						<tr>
-							<td>{{ loop.index }}</td>
+							<td class="col-rank has-text-grey">{{ loop.index }}</td>
 							<td>
 								<details>
 									<summary style="cursor: pointer; padding: 10px 0; margin: -10px 0;">{{ user }}</summary>
