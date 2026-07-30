@@ -1,31 +1,35 @@
+version: "3.8"
 services:
   pikaraoke:
     image: ghcr.io/adl101010/pikaraoke:stable
-    container_name: testkar
-    ports:
-      - "8844:8844"
+    container_name: pikaraoke
+    # Host networking makes LAN-IP autodetection (for the splash screen QR
+    # code) far more reliable than Docker's bridge network + port mapping.
+    network_mode: host
+    # Uncomment and edit to configure PiKaraoke at container start. Anything
+    # not listed here can also be changed later from the Admin page.
+    # command:
+    #   - "-p"
+    #   - "8844"                          # Port PiKaraoke listens on. Required with host
+    #                                      # networking so multiple instances don't collide.
+    #   - "--url"
+    #   - "https://your-domain.example.com"  # Public URL used for the QR code / generated links
+    #   - "--admin-password"
+    #   - "your-admin-password"           # SECURITY: leave this flag out entirely and
+    #                                      # EVERYONE gets admin access -- no default lockout
+    #   - "--high-quality"                # Download videos at up to 1080p
+    #   - "--disable-bg-music"            # Turn off background music between songs
+    #   - "--disable-bg-video"            # Turn off background video on the splash screen
+    #   - "--disable-score"               # Turn off the post-song scoring screen
     volumes:
-      - testkar_songs:/app/pikaraoke-songs
-      - testkar_config:/home/pikaraoke/.pikaraoke
-    command:
-      - "-p"
-      - "8844"
-      - "--high-quality"
-      - "--disable-bg-music"
-      - "--disable-bg-video"
-      - "--disable-score"
-      - "--admin-password"
-      - "${ADMIN_PASSWORD:-bacon}"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8844/"]
-      interval: 30s
-      timeout: 3s
-      start_period: 40s
-      retries: 3
+      - pikaraoke_songs:/app/pikaraoke-songs
+      - pikaraoke_config:/home/pikaraoke/.pikaraoke
+    environment:
+      - TZ=UTC # Set to your local timezone, e.g. America/New_York
     restart: unless-stopped
-
 volumes:
-  testkar_songs:
+  pikaraoke_songs:
     driver: local
-  testkar_config:
+  pikaraoke_config:
     driver: local
+networks: {}
