@@ -83,7 +83,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user selects quit. #}
 				if (window.confirm({{ _('Are you sure you want to quit?') | tojson }})) {
-					location.href = this.href;
+					$("#quit-form")[0].submit();
 				}
 			});
 
@@ -91,7 +91,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user starts to turn off the machine running Pikaraoke. #}
 				if (window.confirm({{ _('Are you sure you want to shut down?') | tojson }})) {
-					location.href = this.href;
+					$("#shutdown-form")[0].submit();
 				}
 			});
 
@@ -107,7 +107,7 @@
 				e.preventDefault();
 				// {# MSG: Confirmation text whe the user starts to reboot the machine running Pikaraoke. #}
 				if (window.confirm({{ _('Are you sure you want to reboot?') | tojson }})) {
-					location.href = this.href;
+					$("#restart-form")[0].submit();
 				}
 			});
 
@@ -127,7 +127,7 @@
 			e.preventDefault();
 			// {# MSG: Confirmation text when the user wants to expand the filesystem to take the entire SD card. #}
 			if (window.confirm(window.translations.confirmExpandFilesystem)) {
-				location.href = this.href;
+				$("#expand-form")[0].submit();
 			}
 		});
 
@@ -1002,9 +1002,12 @@
 							you may want to expand the filesystem to utilize the remaining space. You only need to do this once.
 							This will reboot the system.
 						{%- endtrans %}</p>
-						<a id="expand-link"  class="button is-primary is-inverted" href="{{ url_for('admin.expand_fs') }}">
-							{# MSG: Text for button#}
-							{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</a>
+						<form id="expand-form" method="post" action="{{ url_for('admin.expand_fs') }}">
+							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+							<button type="submit" id="expand-link" class="button is-primary is-inverted">
+								{# MSG: Text for button#}
+								{% trans %}Expand Raspberry Pi filesystem{% endtrans %}</button>
+						</form>
 					</div>
 				</div>
 			</div>
@@ -1042,13 +1045,22 @@
 
 					<div class="buttons">
 						{# MSG: Text for button which turns off Pikaraoke for everyone using it at your house. #}
-						<a id="quit-link" class="button is-primary" href="{{ url_for('admin.quit') }}">{% trans %}Quit Pikaraoke{% endtrans %}</a>
+						<form id="quit-form" method="post" action="{{ url_for('admin.quit') }}" style="display: contents;">
+							<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+							<button type="submit" id="quit-link" class="button is-primary">{% trans %}Quit Pikaraoke{% endtrans %}</button>
+						</form>
 						{% if is_pi or is_linux %}
 							{# MSG: Text for button which reboots the machine running Pikaraoke. #}
-							<a id="restart-link" class="button is-primary" href="{{ url_for('admin.reboot') }}">{% trans %}Reboot System{% endtrans %}</a>
+							<form id="restart-form" method="post" action="{{ url_for('admin.reboot') }}" style="display: contents;">
+								<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+								<button type="submit" id="restart-link" class="button is-primary">{% trans %}Reboot System{% endtrans %}</button>
+							</form>
 
 							{# MSG: Text for button which turn soff the machine running Pikaraoke. #}
-							<a id="shutdown-link" class="button is-primary" href="{{ url_for('admin.shutdown') }}">{% trans %}Shutdown System{% endtrans %}</a>
+							<form id="shutdown-form" method="post" action="{{ url_for('admin.shutdown') }}" style="display: contents;">
+								<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+								<button type="submit" id="shutdown-link" class="button is-primary">{% trans %}Shutdown System{% endtrans %}</button>
+							</form>
 						{% endif %}
 					</div>
 

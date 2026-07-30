@@ -40,15 +40,21 @@ class QueueManager:
 
     def is_user_limited(self, user: str) -> bool:
         """Check if a user has reached their queue limit."""
-        limit = self._preferences.get_or_default("limit_user_songs_by")
-        if limit == 0 or user in ("Pikaraoke", "Randomizer"):
+        try:
+            # A malformed preference value (e.g. from a hand-edited request)
+            # must not lock every user out or crash every enqueue -- treat
+            # it as unlimited, same as the documented 0 = unlimited value.
+            limit = int(self._preferences.get_or_default("limit_user_songs_by"))
+        except (TypeError, ValueError):
+            limit = 0
+        if limit <= 0 or user in ("Pikaraoke", "Randomizer"):
             return False
 
         now_playing_user = self._get_now_playing_user() if self._get_now_playing_user else None
         count = sum(1 for item in self.queue if item["user"] == user) + (
             1 if now_playing_user == user else 0
         )
-        return count >= int(limit)
+        return count >= limit
 
     def _resolve_title(self, song_path: str) -> str:
         """Get a display title from a song path."""

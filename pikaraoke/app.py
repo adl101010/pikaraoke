@@ -23,7 +23,7 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_csrf_token, get_karaoke_instance
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -165,6 +165,7 @@ def inject_path_config() -> dict[str, str]:
         "socketio_path": app.config["PIKARAOKE_SOCKETIO_PATH"],
         "cookie_path": app.config["SESSION_COOKIE_PATH"],
         "theme": theme,
+        "csrf_token": get_csrf_token,
     }
 
 

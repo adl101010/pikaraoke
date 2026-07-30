@@ -13,7 +13,12 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.karaoke import Karaoke
-from pikaraoke.lib.current_app import get_admin_password, get_karaoke_instance, is_admin
+from pikaraoke.lib.current_app import (
+    get_admin_password,
+    get_karaoke_instance,
+    is_admin,
+    verify_csrf_token,
+)
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
 
 _ = flask_babel.gettext
@@ -101,72 +106,89 @@ def unblock_ip(ip_address):
     return redirect(url_for("info.info"))
 
 
-@admin_bp.route("/quit")
+@admin_bp.route("/quit", methods=["POST"])
 def quit():
     """Exit the PiKaraoke application."""
     k = get_karaoke_instance()
-    if is_admin():
-        # MSG: Message shown after quitting pikaraoke.
-        msg = _("Exiting pikaraoke now!")
-        flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[0, k])
-        th.start()
-    else:
+    if not is_admin():
         # MSG: Message shown after trying to quit pikaraoke without admin permissions.
         flash(_("You don't have permission to quit"), "is-danger")
+        return redirect(url_for("home.home"))
+    if not verify_csrf_token():
+        # MSG: Message shown when a form submission's CSRF token is missing or stale.
+        flash(_("Invalid or expired request, please try again."), "is-danger")
+        return redirect(url_for("home.home"))
+    # MSG: Message shown after quitting pikaraoke.
+    msg = _("Exiting pikaraoke now!")
+    flash(msg, "is-danger")
+    k.send_notification(msg, "danger")
+    th = threading.Thread(target=delayed_halt, args=[0, k])
+    th.start()
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/shutdown")
+@admin_bp.route("/shutdown", methods=["POST"])
 def shutdown():
     """Shut down the host system."""
     k = get_karaoke_instance()
-    if is_admin():
-        # MSG: Message shown after shutting down the system.
-        msg = _("Shutting down system now!")
-        flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[1, k])
-        th.start()
-    else:
+    if not is_admin():
         # MSG: Message shown after trying to shut down the system without admin permissions.
         flash(_("You don't have permission to shut down"), "is-danger")
+        return redirect(url_for("home.home"))
+    if not verify_csrf_token():
+        # MSG: Message shown when a form submission's CSRF token is missing or stale.
+        flash(_("Invalid or expired request, please try again."), "is-danger")
+        return redirect(url_for("home.home"))
+    # MSG: Message shown after shutting down the system.
+    msg = _("Shutting down system now!")
+    flash(msg, "is-danger")
+    k.send_notification(msg, "danger")
+    th = threading.Thread(target=delayed_halt, args=[1, k])
+    th.start()
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/reboot")
+@admin_bp.route("/reboot", methods=["POST"])
 def reboot():
     """Reboot the host system."""
     k = get_karaoke_instance()
-    if is_admin():
-        # MSG: Message shown after rebooting the system.
-        msg = _("Rebooting system now!")
-        flash(msg, "is-danger")
-        k.send_notification(msg, "danger")
-        th = threading.Thread(target=delayed_halt, args=[2, k])
-        th.start()
-    else:
+    if not is_admin():
         # MSG: Message shown after trying to reboot the system without admin permissions.
         flash(_("You don't have permission to Reboot"), "is-danger")
+        return redirect(url_for("home.home"))
+    if not verify_csrf_token():
+        # MSG: Message shown when a form submission's CSRF token is missing or stale.
+        flash(_("Invalid or expired request, please try again."), "is-danger")
+        return redirect(url_for("home.home"))
+    # MSG: Message shown after rebooting the system.
+    msg = _("Rebooting system now!")
+    flash(msg, "is-danger")
+    k.send_notification(msg, "danger")
+    th = threading.Thread(target=delayed_halt, args=[2, k])
+    th.start()
     return redirect(url_for("home.home"))
 
 
-@admin_bp.route("/expand_fs")
+@admin_bp.route("/expand_fs", methods=["POST"])
 def expand_fs():
     """Expand filesystem on Raspberry Pi."""
     k = get_karaoke_instance()
-    if is_admin() and k.is_raspberry_pi:
-        # MSG: Message shown after expanding the filesystem.
-        flash(_("Expanding filesystem and rebooting system now!"), "is-danger")
-        th = threading.Thread(target=delayed_halt, args=[3, k])
-        th.start()
-    elif not k.is_raspberry_pi:
-        # MSG: Message shown after trying to expand the filesystem on a non-raspberry pi device.
-        flash(_("Cannot expand fs on non-raspberry pi devices!"), "is-danger")
-    else:
+    if not is_admin():
         # MSG: Message shown after trying to expand the filesystem without admin permissions
         flash(_("You don't have permission to resize the filesystem"), "is-danger")
+        return redirect(url_for("home.home"))
+    if not k.is_raspberry_pi:
+        # MSG: Message shown after trying to expand the filesystem on a non-raspberry pi device.
+        flash(_("Cannot expand fs on non-raspberry pi devices!"), "is-danger")
+        return redirect(url_for("home.home"))
+    if not verify_csrf_token():
+        # MSG: Message shown when a form submission's CSRF token is missing or stale.
+        flash(_("Invalid or expired request, please try again."), "is-danger")
+        return redirect(url_for("home.home"))
+    # MSG: Message shown after expanding the filesystem.
+    flash(_("Expanding filesystem and rebooting system now!"), "is-danger")
+    th = threading.Thread(target=delayed_halt, args=[3, k])
+    th.start()
     return redirect(url_for("home.home"))
 
 
@@ -178,15 +200,17 @@ def auth(form):
     p = form["admin_password"]
     next_url = form["next"]
 
-    # Validate next_url to prevent open redirect vulnerabilities
-    if not next_url.startswith("/"):
+    # Validate next_url to prevent open redirect vulnerabilities. A leading
+    # "//" is still rejected here -- browsers treat "//evil.com" as
+    # protocol-relative and will redirect off-site despite the "/" prefix.
+    if not next_url.startswith("/") or next_url.startswith("//"):
         next_url = "/"
 
     if p == admin_password:
         resp = make_response(redirect(next_url))
         expire_date = datetime.datetime.now()
         expire_date = expire_date + datetime.timedelta(days=90)
-        resp.set_cookie("admin", admin_password, expires=expire_date)
+        resp.set_cookie("admin", admin_password, expires=expire_date, httponly=True, samesite="Lax")
         # MSG: Message shown after logging in as admin successfully
         flash(_("Admin mode granted!"), "is-success")
     else:
@@ -200,7 +224,7 @@ def auth(form):
 def logout():
     """Log out of admin mode."""
     resp = make_response(redirect(url_for("info.info")))
-    resp.set_cookie("admin", "")
+    resp.set_cookie("admin", "", httponly=True, samesite="Lax")
     # MSG: Message shown after logging out as admin successfully
     flash(_("Logged out of admin mode!"), "is-success")
     return resp

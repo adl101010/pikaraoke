@@ -2,15 +2,40 @@
 
 import logging
 import os
+import secrets
 import subprocess
 import sys
 import time
 from typing import Any
 
-from flask import current_app, request
+from flask import current_app, request, session
 from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
+
+
+def get_csrf_token() -> str:
+    """Get-or-create a per-session CSRF token for admin form submissions.
+
+    Stored in Flask's signed session cookie, so it needs no server-side
+    storage and is naturally scoped to one browser session.
+    """
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
+    return session["csrf_token"]
+
+
+def verify_csrf_token() -> bool:
+    """Check the request's submitted CSRF token against the session's.
+
+    Guards state-changing admin actions that are simple top-level-navigation
+    links (e.g. quit/shutdown/reboot): SameSite=Lax still allows the admin
+    cookie on such a navigation, so a malicious page could otherwise trigger
+    them just by getting a logged-in admin to load a URL.
+    """
+    submitted = request.form.get("csrf_token", "")
+    expected = session.get("csrf_token", "")
+    return bool(expected) and secrets.compare_digest(submitted, expected)
 
 
 def is_admin() -> bool:

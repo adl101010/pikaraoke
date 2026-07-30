@@ -1,4 +1,6 @@
-"""Tests for Flask application-context helpers: get_client_ip() and is_action_blocked()."""
+"""Tests for Flask application-context helpers: get_client_ip(), is_action_blocked(),
+and the CSRF token helpers used to guard destructive admin routes.
+"""
 
 from unittest.mock import MagicMock
 
@@ -8,7 +10,12 @@ from flask import Flask
 if not hasattr(werkzeug, "__version__"):
     werkzeug.__version__ = "3.0.0"
 
-from pikaraoke.lib.current_app import get_client_ip, is_action_blocked
+from pikaraoke.lib.current_app import (
+    get_client_ip,
+    get_csrf_token,
+    is_action_blocked,
+    verify_csrf_token,
+)
 
 
 def _app():
@@ -95,3 +102,59 @@ def test_action_blocked_when_user_is_whitespace_only():
 def test_action_blocked_when_user_is_none():
     client = _blocked_app(is_ip_blocked=False, user=None).test_client()
     assert client.get("/probe").data.decode() == "True"
+
+
+def _csrf_app():
+    app = Flask(__name__)
+    app.secret_key = "test"
+
+    @app.route("/get-token")
+    def get_token():
+        return get_csrf_token()
+
+    @app.route("/verify", methods=["POST"])
+    def verify():
+        return str(verify_csrf_token())
+
+    return app
+
+
+def test_get_csrf_token_is_stable_within_a_session():
+    client = _csrf_app().test_client()
+    first = client.get("/get-token").data.decode()
+    second = client.get("/get-token").data.decode()
+    assert first == second
+
+
+def test_get_csrf_token_differs_across_sessions():
+    app = _csrf_app()
+    token_a = app.test_client().get("/get-token").data.decode()
+    token_b = app.test_client().get("/get-token").data.decode()
+    assert token_a != token_b
+
+
+def test_verify_csrf_token_accepts_matching_token():
+    client = _csrf_app().test_client()
+    token = client.get("/get-token").data.decode()
+    response = client.post("/verify", data={"csrf_token": token})
+    assert response.data.decode() == "True"
+
+
+def test_verify_csrf_token_rejects_wrong_token():
+    client = _csrf_app().test_client()
+    client.get("/get-token")
+    response = client.post("/verify", data={"csrf_token": "not-the-token"})
+    assert response.data.decode() == "False"
+
+
+def test_verify_csrf_token_rejects_missing_token():
+    client = _csrf_app().test_client()
+    client.get("/get-token")
+    response = client.post("/verify", data={})
+    assert response.data.decode() == "False"
+
+
+def test_verify_csrf_token_rejects_when_no_token_was_ever_issued():
+    client = _csrf_app().test_client()
+    response = client.post("/verify", data={"csrf_token": ""})
+    assert response.data.decode() == "False"

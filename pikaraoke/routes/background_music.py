@@ -5,7 +5,7 @@ import random
 import urllib
 
 import flask_babel
-from flask import jsonify, send_file, url_for
+from flask import abort, jsonify, send_file, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import get_karaoke_instance
@@ -41,8 +41,18 @@ def create_randomized_playlist(input_directory, base_url, max_songs=50):
 def bg_music(file):
     """Stream a background music file."""
     k = get_karaoke_instance()
-    mp3_path = os.path.join(k.bg_music_path, file)
-    return send_file(os.path.abspath(mp3_path), mimetype="audio/mpeg")
+    real_bg_music_path = os.path.realpath(k.bg_music_path)
+    mp3_path = os.path.realpath(os.path.join(real_bg_music_path, file))
+    try:
+        within_bg_music_path = (
+            os.path.commonpath([real_bg_music_path, mp3_path]) == real_bg_music_path
+        )
+    except ValueError:
+        # Raised on Windows when the paths are on different drives.
+        within_bg_music_path = False
+    if not within_bg_music_path or not os.path.isfile(mp3_path):
+        abort(404)
+    return send_file(mp3_path, mimetype="audio/mpeg")
 
 
 @background_music_bp.route("/bg_playlist", methods=["GET"])

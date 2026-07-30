@@ -58,6 +58,13 @@ def recap():
     session = None
     if requested_start:
         session = next((s for s in sessions if s.started_at == requested_start), None)
+        if session is None and sessions:
+            # MSG: Shown when a session link (e.g. a bookmark) no longer matches any session.
+            flash(
+                _("That session couldn't be found. Showing the most recent session instead."),
+                "is-warning",
+            )
+            session = sessions[-1]
     elif sessions:
         session = sessions[-1]
 

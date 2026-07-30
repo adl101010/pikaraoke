@@ -140,6 +140,31 @@ class TestDelete:
         sm = SongManager(str(tmp_path), db=mock_db)
         sm.delete(_native(tmp_path / "nonexistent.mp4"))
 
+    def test_refuses_to_delete_path_outside_download_path(self, tmp_path, mock_db):
+        outside_dir = tmp_path.parent / "outside_song_manager_test"
+        outside_dir.mkdir(exist_ok=True)
+        outside_file = outside_dir / "not-a-song.txt"
+        outside_file.write_text("should survive")
+        library = tmp_path / "library"
+        library.mkdir()
+        sm = SongManager(str(library), db=mock_db)
+
+        sm.delete(_native(outside_file))
+
+        assert outside_file.exists()
+        mock_db.delete_by_path.assert_not_called()
+
+    def test_refuses_to_delete_traversal_path(self, tmp_path, mock_db):
+        library = tmp_path / "library"
+        library.mkdir()
+        escaped = tmp_path / "escaped.txt"
+        escaped.write_text("should survive")
+        sm = SongManager(str(library), db=mock_db)
+
+        sm.delete(_native(library / ".." / "escaped.txt"))
+
+        assert escaped.exists()
+
 
 class TestRename:
     def test_renames_file_and_updates_songs(self, tmp_path, mock_db):
@@ -180,6 +205,20 @@ class TestRename:
         sm.songs.add_if_valid(_native(song))
         result = sm.rename(_native(song), "New---abc")
         assert result == _native(tmp_path / "New---abc.mp4")
+
+    def test_refuses_to_rename_path_outside_download_path(self, tmp_path, mock_db):
+        outside_dir = tmp_path.parent / "outside_song_manager_rename_test"
+        outside_dir.mkdir(exist_ok=True)
+        outside_file = outside_dir / "not-a-song.txt"
+        outside_file.write_text("should survive")
+        library = tmp_path / "library"
+        library.mkdir()
+        sm = SongManager(str(library), db=mock_db)
+
+        with pytest.raises(OSError):
+            sm.rename(_native(outside_file), "New---abc")
+
+        assert outside_file.exists()
 
 
 class TestDBCoordination:

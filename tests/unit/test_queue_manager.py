@@ -605,3 +605,29 @@ class TestQueueManagerHelpers:
 
         qm.enqueue("/songs/song1---abc.mp4", "LimitedUser")
         assert qm.is_user_limited("LimitedUser") is True
+
+    def test_is_user_limited_treats_non_numeric_value_as_unlimited(self, preferences, events):
+        """A malformed preference value must not crash every enqueue -- fail open, not closed."""
+        preferences.set("limit_user_songs_by", "not-a-number")
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=extract_title,
+            get_available_songs=lambda: [],
+        )
+
+        assert qm.is_user_limited("AnyUser") is False
+
+    def test_is_user_limited_treats_negative_value_as_unlimited(self, preferences, events):
+        """A negative limit must not lock every user out permanently."""
+        preferences.set("limit_user_songs_by", -1)
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=extract_title,
+            get_available_songs=lambda: [],
+        )
+
+        assert qm.is_user_limited("AnyUser") is False

@@ -121,7 +121,7 @@
 							<td>{{ loop.index }}</td>
 							<td>
 								<details>
-									<summary style="cursor: pointer;">{{ user }}</summary>
+									<summary style="cursor: pointer; padding: 10px 0; margin: -10px 0;">{{ user }}</summary>
 									<ul class="is-size-7" style="margin-top: 4px; margin-left: 15px;">
 										{% for entry in songs_by_singer.get(user, []) %}
 										<li>{{ entry.display_name }}{% if entry.count > 1 %} &times;{{ entry.count }}{% endif %}</li>

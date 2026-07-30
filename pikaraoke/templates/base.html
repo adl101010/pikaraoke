@@ -88,6 +88,15 @@
     }
 
 
+    // Escapes user-controlled text (display names, song titles) before it's
+    // concatenated into an HTML string and inserted via .html() -- song
+    // titles and display names are fully attacker-controlled (arbitrary
+    // filenames, an unvalidated name prompt), so raw concatenation is a
+    // stored-XSS sink.
+    function escapeHtml(str) {
+      return $("<div>").text(str == null ? "" : str).html();
+    }
+
     function showNotification(message, categoryClass, timeout=3000) {
       $("#notification-alt").addClass(categoryClass)
       $("#notification-alt div").text(message)

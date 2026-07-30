@@ -70,6 +70,16 @@ class SongManager:
         tidy = self._get_title_tidy() if self._get_title_tidy else True
         return self.filename_from_path(file_path, remove_youtube_id=remove_youtube_id, tidy=tidy)
 
+    def _is_within_download_path(self, path: str) -> bool:
+        """Check a path resolves inside download_path, defeating '..'/symlink escapes."""
+        real_download = os.path.realpath(self.download_path)
+        real_path = os.path.realpath(path)
+        try:
+            return os.path.commonpath([real_download, real_path]) == real_download
+        except ValueError:
+            # Raised on Windows when the paths are on different drives.
+            return False
+
     def _get_companion_files(self, song_path: str) -> list[str]:
         """Return paths to companion files (.cdg, .ass) that exist alongside a song."""
         dirpath = os.path.dirname(song_path)
@@ -88,6 +98,9 @@ class SongManager:
 
     def delete(self, song_path: str) -> None:
         """Delete a song from disk, SongList, and DB."""
+        if not self._is_within_download_path(song_path):
+            logging.error(f"Refusing to delete path outside the song library: {song_path}")
+            return
         logging.info(f"Deleting song: {song_path}")
         companions = self._get_companion_files(song_path)
         with contextlib.suppress(FileNotFoundError):
@@ -105,6 +118,8 @@ class SongManager:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
         """
+        if not self._is_within_download_path(song_path):
+            raise OSError(f"Refusing to rename path outside the song library: {song_path}")
         new_name = sanitize_filename(new_name)
         logging.info(f"Renaming song: '{song_path}' to: {new_name}")
         companions = self._get_companion_files(song_path)
