@@ -25,6 +25,7 @@ dependencies = [
   "flask-socketio>=5.5.0",
   "gevent>=24.11.1",
   "sounddevice>=0.5.0; sys_platform != 'linux'",
+  "tzdata>=2025.2",
 ]
 
 [project.optional-dependencies]

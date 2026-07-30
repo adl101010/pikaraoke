@@ -33,6 +33,7 @@ from pikaraoke.lib.get_platform import (
     is_windows,
 )
 from pikaraoke.lib.keep_awake import KeepAwake
+from pikaraoke.lib.local_time import format_local_datetime
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -67,6 +68,7 @@ babel = Babel()
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 app.jinja_env.add_extension("jinja2.ext.i18n")
+app.jinja_env.filters["local_time"] = format_local_datetime
 app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
 app.config["JSON_SORT_KEYS"] = False
 app.config["APPLICATION_ROOT"] = args.base_path or "/"

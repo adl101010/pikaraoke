@@ -604,7 +604,7 @@
 							<tbody>
 								{% for entry in audit_log_entries %}
 								<tr>
-									<td class="is-size-7">{{ entry.timestamp }}</td>
+									<td class="is-size-7">{{ entry.timestamp|local_time }}</td>
 									<td>{{ entry.user }}</td>
 									<td class="is-size-7">{{ entry.ip_address or "--" }}</td>
 									<td>{{ entry.action }}{% if entry.detail %} &mdash; {{ entry.detail }}{% endif %}</td>
@@ -646,7 +646,7 @@
 							{% for entry in blocked_ips %}
 							<tr>
 								<td>{{ entry.ip_address }}</td>
-								<td class="is-size-7">{{ entry.blocked_at }}</td>
+								<td class="is-size-7">{{ entry.blocked_at|local_time }}</td>
 								<td>
 									<a class="has-text-danger is-size-7" href="{{ url_for('admin.unblock_ip', ip_address=entry.ip_address) }}">
 										{# MSG: Link to remove an IP from the blocklist. #}
@@ -694,7 +694,7 @@
 								<td>{{ loop.index }}</td>
 								<td>{{ filename_from_path(entry.file_path) }}</td>
 								<td>{{ entry.play_count }}</td>
-								<td class="is-size-7">{{ entry.last_played_at or "--" }}</td>
+								<td class="is-size-7">{{ entry.last_played_at|local_time or "--" }}</td>
 							</tr>
 							{% endfor %}
 						</tbody>
@@ -749,7 +749,7 @@
 										/>
 									</td>
 									<td class="is-size-7">
-										{{ entry.started_at }} &ndash; {{ entry.ended_at }}
+										{{ entry.started_at|local_time }} &ndash; {{ entry.ended_at|local_time }}
 										{% if entry.live %}<span class="tag is-success is-light">{% trans %}Live{% endtrans %}</span>{% endif %}
 									</td>
 									<td>{{ entry.play_count }}</td>
