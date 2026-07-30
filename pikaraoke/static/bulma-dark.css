@@ -300,6 +300,17 @@ hr {
 	color: var(--dark-bg-secondary);
 }
 
+/* The rule above reuses --dark-bg-secondary as a text color, which happens
+   to be dark (and readable against the hardcoded white background) in
+   Dark/Classic, but is a pale pastel blue in Light -- nearly invisible on
+   the same white. Scoped to Light only, per request, rather than changing
+   the shared rule Dark/Classic already read fine with. */
+:root[data-theme="light"] .input,
+:root[data-theme="light"] .textarea,
+:root[data-theme="light"] .select select {
+	color: var(--dark-text-primary);
+}
+
 .input:hover,
 .textarea:hover,
 .select select:hover {
