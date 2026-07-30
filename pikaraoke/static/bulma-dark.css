@@ -99,6 +99,38 @@
 	--font-body: "More Sugar Thin", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
 }
 
+/* Sage (Cozy Whiskers) -- dark teal cat theme, mocked up as several
+   candidates and refined live with the user before implementation. */
+:root[data-theme="sage"] {
+	--dark-bg-primary: #0D1F1D;
+	--dark-bg-secondary: #2A3E3B;
+	--dark-bg-tertiary: #364642;
+	--dark-bg-accent: #173330;
+
+	--dark-text-primary: #F4E9DC;
+	--dark-text-secondary: #F0E3D3;
+	--dark-text-muted: #BFB0A3;
+	--dark-text-light: #C9B7A8;
+
+	--dark-border: #2B4A45;
+	--dark-border-light: #3F615A;
+
+	--dark-primary: #12302C;
+	--dark-link: #9FCCBC;
+	--dark-link-hover: #BFE0D3;
+	--dark-info: #9FCCBC;
+	--dark-success: #9FCCBC;
+	--dark-warning: #E8A855;
+	--dark-danger: #E6AB8E;
+
+	--dark-on-link: #0F2E27;
+	--dark-on-warning: #402A05;
+	--dark-on-danger: #3D1B0C;
+
+	--font-heading: "More Sugar", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+	--font-body: "More Sugar Thin", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+}
+
 /* The original repo's default palette, before Neon Tiki/Daylight Lounge. */
 :root[data-theme="classic"] {
 	--dark-bg-primary: #1f2424;
@@ -285,6 +317,22 @@ hr {
 .button.is-danger {
 	/* background-color: var(--dark-danger); */
 	/* border-color: transparent; */
+}
+
+/* Only ever used as .is-outlined in this app (Clear queue, reset logo,
+   clear preferences) -- Bulma's own outlined-danger color doesn't read the
+   theme at all, so it was always a fixed bright red regardless of theme
+   (passable by luck against Dark's near-black, marginal against Classic,
+   failing against the cat theme's lighter card background). */
+.button.is-danger.is-outlined {
+	color: var(--dark-danger) !important;
+	border-color: var(--dark-danger) !important;
+	background-color: transparent !important;
+}
+
+.button.is-danger.is-outlined:hover {
+	background-color: var(--dark-danger) !important;
+	color: var(--dark-on-danger) !important;
 }
 
 /* ===================================
