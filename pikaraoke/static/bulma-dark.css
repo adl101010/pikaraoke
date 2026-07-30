@@ -30,6 +30,10 @@
 	--dark-bg-primary: #140D0A;
 	--dark-bg-secondary: #221712;
 	--dark-bg-tertiary: #2E1F19;
+	/* A step darker/richer than bg-tertiary, for panels that need to read as
+	   a distinct "boxed" callout (e.g. Active Singers) rather than blend in
+	   like a regular card. */
+	--dark-bg-accent: #2E1F19;
 
 	/* Text colors */
 	--dark-text-primary: #FFF8F2;
@@ -65,22 +69,26 @@
 	--dark-bg-primary: #D4E9E2;
 	--dark-bg-secondary: #E2F1F7;
 	--dark-bg-tertiary: #CFE6EF;
+	/* Regular card/box tones are too close to the page background to read as
+	   a distinct panel -- this is a deeper, more saturated tone reserved for
+	   callouts that need actual visual separation (e.g. Active Singers). */
+	--dark-bg-accent: #7FA9B8;
 
 	--dark-text-primary: #4A2E29;
 	--dark-text-secondary: #3A231F;
-	--dark-text-muted: #8A6D65;
+	--dark-text-muted: #6E534B;
 	--dark-text-light: #6B5048;
 
 	--dark-border: #B9D9CE;
 	--dark-border-light: #9CC3B5;
 
 	--dark-primary: #E2F1F7;
-	--dark-link: #2E7C76;
-	--dark-link-hover: #256863;
-	--dark-info: #2E7C76;
-	--dark-success: #2E7C76;
-	--dark-warning: #2E7C76;
-	--dark-danger: #D45715;
+	--dark-link: #276A65;
+	--dark-link-hover: #1D524E;
+	--dark-info: #276A65;
+	--dark-success: #276A65;
+	--dark-warning: #276A65;
+	--dark-danger: #A54310;
 
 	--dark-on-link: #FFF8F2;
 	--dark-on-warning: #FFF8F2;
@@ -95,6 +103,7 @@
 	--dark-bg-primary: #1f2424;
 	--dark-bg-secondary: #282f2f;
 	--dark-bg-tertiary: #343c3d;
+	--dark-bg-accent: #343c3d;
 
 	--dark-text-primary: #ffffff;
 	--dark-text-secondary: #f2f2f2;
@@ -146,6 +155,19 @@ h6,
 .title,
 .subtitle {
 	font-family: var(--font-heading);
+	color: var(--dark-text-secondary);
+}
+
+/* Bulma's own .content h1-h6 rule is more specific than the bare selector
+   above, so it silently wins wherever a heading sits inside a .content
+   wrapper (very common) and falls back to Bulma's un-themed default color
+   instead -- explicitly re-match it here. */
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
 	color: var(--dark-text-secondary);
 }
 
@@ -211,47 +233,51 @@ hr {
 	border-color: var(--dark-border-light); */
 }
 
-/* Colored buttons */
+/* Colored buttons. Bulma's own .button.is-* rules don't set background-color
+   directly -- they set intermediate --bulma-button-* custom properties that
+   a separate, lower-specificity .button rule reads via an hsl() formula.
+   That means a plain override here (even with matching/higher specificity)
+   silently loses to Bulma's computed value; !important is required. */
 .button.is-primary {
-	background-color: var(--dark-primary);
+	background-color: var(--dark-primary) !important;
 	border-color: transparent;
-	color: var(--dark-text-primary);
+	color: var(--dark-text-primary) !important;
 }
 
 .button.is-primary:hover {
-	background-color: #436d9a;
+	background-color: #436d9a !important;
 }
 
 .button.is-primary[disabled] {
-	background-color: #3e5b7a;
+	background-color: #3e5b7a !important;
 }
 
 .button.is-link {
-	background-color: var(--dark-link);
+	background-color: var(--dark-link) !important;
 	border-color: transparent;
-	color: var(--dark-on-link);
+	color: var(--dark-on-link) !important;
 }
 
 .button.is-link:hover {
-	background-color: var(--dark-link-hover);
+	background-color: var(--dark-link-hover) !important;
 }
 
 .button.is-info {
-	background-color: var(--dark-info);
+	background-color: var(--dark-info) !important;
 	border-color: transparent;
-	color: var(--dark-on-link);
+	color: var(--dark-on-link) !important;
 }
 
 .button.is-success {
-	background-color: var(--dark-success);
+	background-color: var(--dark-success) !important;
 	border-color: transparent;
-	color: var(--dark-on-link);
+	color: var(--dark-on-link) !important;
 }
 
 .button.is-warning {
-	background-color: var(--dark-warning);
+	background-color: var(--dark-warning) !important;
 	border-color: transparent;
-	color: var(--dark-on-warning);
+	color: var(--dark-on-warning) !important;
 }
 
 .button.is-danger {
@@ -774,6 +800,57 @@ button.dropdown-item.is-active {
 
 .breadcrumb li.is-active a {
 	color: var(--dark-text-secondary);
+}
+
+/* ===================================
+   HELPER CLASS OVERRIDES
+   =================================== */
+/* Bulma's has-text-X / has-background-X utility classes ship their own
+   hardcoded or --bulma-* colors with !important, completely bypassing this
+   theme. This was the actual source of the Light theme's "light text on
+   light background" bugs: bright/saturated Bulma defaults (tuned to read
+   against a near-black theme) shown against a pale pastel background
+   instead. Only the classes actually used in this codebase are covered. */
+.has-text-success {
+	color: var(--dark-success) !important;
+}
+
+.has-text-warning,
+.has-text-warning-light {
+	color: var(--dark-warning) !important;
+}
+
+.has-text-danger {
+	color: var(--dark-danger) !important;
+}
+
+.has-text-info {
+	color: var(--dark-info) !important;
+}
+
+.has-text-grey {
+	color: var(--dark-text-muted) !important;
+}
+
+.has-text-grey-light {
+	color: var(--dark-text-light) !important;
+}
+
+.has-background-black-bis {
+	background-color: var(--dark-bg-accent) !important;
+}
+
+/* --dark-text-muted is tuned to stay readable against the paler card
+   backgrounds it's normally used on -- against the deeper accent panel
+   above (e.g. a "Loading..." placeholder in the Active Singers box) it
+   isn't dark/light enough, so bump it back up to the stronger body color
+   in that specific context. */
+.has-background-black-bis .has-text-grey {
+	color: var(--dark-text-secondary) !important;
+}
+
+.has-background-dark {
+	background-color: var(--dark-bg-tertiary) !important;
 }
 
 .breadcrumb li + li::before {
