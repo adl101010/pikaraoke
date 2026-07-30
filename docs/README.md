@@ -21,10 +21,12 @@ Love PiKaraoke? This project is independently maintained and free for everyone t
 
 This is a personal fork of [vicwomg/pikaraoke](https://github.com/vicwomg/pikaraoke), all credit for the original project goes to its creator and contributors. My friends and I have spent more late nights than we can count singing on this thing, and over time it's grown a pile of custom features built for how we actually use it at our parties. Sharing them here in case they're useful to anyone else running PiKaraoke for their own crew.
 
+None of this exists without the original project, so if it's made your parties better too, consider [buying the original creator a coffee](https://www.buymeacoffee.com/vicwomg) (see also the support callout up top).
+
 ### Custom features & improvements
 
 - **Public player controls** — Play, pause, transpose, and volume no longer require the admin password, so anyone at the party can help run the show. Skip stays admin-only, since letting anyone cut off a performer felt like a step too far.
-- **Color themes** — Two original themes (Dark "Neon Tiki" and Light "Daylight Lounge"), plus a "Classic" option that restores the original look, all selectable from the admin panel with a custom font.
+- **Color themes** — Four selectable themes: Dark "Neon Tiki", Light "Daylight Lounge", Sage "Cozy Whiskers" (a dark teal, cat-inspired palette), and a "Classic" option that restores the original look. Switchable from the admin panel with a custom font.
 - **Custom logo upload** — Admins can upload their own logo image right from the admin panel, no file editing required.
 - **Lifetime song stats** — PiKaraoke now remembers how many times every song has ever been played, viewable sorted by popularity in the Library page (formerly "Browse"), which also spotlights the 3 most-played songs up top for quick access.
 - **Tonight's Recap** — A live page showing the current (or most recent) karaoke session: total songs sung, who showed up, an MVP singer, the most-played songs, and a click-to-expand list of exactly what each singer sang. Admins can name sessions (e.g. "John's Birthday") and browse a full history of past sessions from the admin panel.
