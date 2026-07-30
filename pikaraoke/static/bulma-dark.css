@@ -30,10 +30,11 @@
 	--dark-bg-primary: #140D0A;
 	--dark-bg-secondary: #221712;
 	--dark-bg-tertiary: #2E1F19;
-	/* A step darker/richer than bg-tertiary, for panels that need to read as
-	   a distinct "boxed" callout (e.g. Active Singers) rather than blend in
-	   like a regular card. */
-	--dark-bg-accent: #2E1F19;
+	/* Deliberately darker than bg-tertiary (and the page itself), for panels
+	   that need to read as a distinct "boxed" callout (e.g. Active Singers)
+	   rather than blend in like a regular card -- this is has-background-
+	   black-bis's original literal value, kept as-is here. */
+	--dark-bg-accent: #14161A;
 
 	/* Text colors */
 	--dark-text-primary: #FFF8F2;
@@ -103,7 +104,8 @@
 	--dark-bg-primary: #1f2424;
 	--dark-bg-secondary: #282f2f;
 	--dark-bg-tertiary: #343c3d;
-	--dark-bg-accent: #343c3d;
+	/* has-background-black-bis's original literal value, kept as-is. */
+	--dark-bg-accent: #14161A;
 
 	--dark-text-primary: #ffffff;
 	--dark-text-secondary: #f2f2f2;
