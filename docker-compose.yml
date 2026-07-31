@@ -7,4 +7,6 @@ services:
       - ~/.pikaraoke:/home/pikaraoke/.pikaraoke
     image: ghcr.io/adl101010/pikaraoke:stable
     command: -u http://<YOUR_LAN_IP>:5555
+    environment:
+      - TZ=UTC # Set to your local timezone, e.g. America/New_York
 networks: {}
