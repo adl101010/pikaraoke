@@ -31,10 +31,13 @@ docker compose up -d
 
 Before running it:
 
-- Edit `command:` and replace `<YOUR_LAN_IP>` with your machine's local network IP (e.g. `http://192.168.1.50:5555`) — this is what gets baked into the QR code guests scan.
+- Edit `command:` and replace `<YOUR_LAN_IP>` with your machine's local network IP (e.g. `http://192.168.1.50:5555`) — the `-u` flag is what gets baked into the QR code guests scan.
+- The `-d /app/pikaraoke-songs` flag tells PiKaraoke where to find/store your song library inside the container — keep it matching the container-side path in the `volumes:` mount below if you change that path.
+- PiKaraoke listens on port 5555 by default, so you don't need to touch anything just to use that port. To use a different port instead, add `-p [port]` to `command:` and update the `5555:5555` mapping to match.
 - Edit the `TZ` environment variable to your local timezone (e.g. `America/Chicago`) so timestamps in the Admin panel and Recap page show up in local time instead of UTC.
-- Adjust the `5555:5555` port mapping if you want PiKaraoke on a different port.
 - The two `volumes:` bind mounts (`~/pikaraoke-songs`, `~/.pikaraoke`) persist your song library and settings/database across container restarts — change the left-hand paths if you'd rather store them somewhere else.
+
+See the [official PiKaraoke wiki](https://github.com/vicwomg/pikaraoke/wiki/) for the full list of command-line flags and what they do.
 
 ## Everything else
 

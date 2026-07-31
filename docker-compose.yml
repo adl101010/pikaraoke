@@ -6,7 +6,7 @@ services:
       - ~/pikaraoke-songs:/app/pikaraoke-songs
       - ~/.pikaraoke:/home/pikaraoke/.pikaraoke
     image: ghcr.io/adl101010/pikaraoke:stable
-    command: -u http://<YOUR_LAN_IP>:5555
+    command: -u http://<YOUR_LAN_IP>:5555 -d /app/pikaraoke-songs
     environment:
       - TZ=UTC # Set to your local timezone, e.g. America/New_York
 networks: {}
