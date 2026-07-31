@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - dev
-      - main
+      - master
   workflow_dispatch: {}
 
 jobs:
@@ -31,11 +31,11 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     # dev branch -> :dev (+ :dev-<sha> for traceability)
-    # main branch -> :stable, :latest (+ :<sha>)
+    # master branch -> :stable, :latest (+ :<sha>)
     - name: Compute image tags
       id: tags
       run: |
-        if [ "${{ github.ref_name }}" = "main" ]; then
+        if [ "${{ github.ref_name }}" = "master" ]; then
           {
             echo "tags<<EOF"
             echo "ghcr.io/${{ github.repository }}:stable"

@@ -70,7 +70,7 @@ uv run pre-commit run --config code_quality/.pre-commit-config.yaml --all-files
 
 Tools: Black (100 char), isort, pycln, pylint, mdformat.
 
-Never commit to `master` directly.
+Never commit to `master` directly — `master` is the production branch; work happens on `dev` and fast-forwards into `master`.
 
 ## Pull Requests
 
