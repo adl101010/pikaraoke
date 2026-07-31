@@ -1,35 +1,10 @@
-version: "3.8"
 services:
   pikaraoke:
-    image: ghcr.io/adl101010/pikaraoke:stable
-    container_name: pikaraoke
-    # Host networking makes LAN-IP autodetection (for the splash screen QR
-    # code) far more reliable than Docker's bridge network + port mapping.
-    network_mode: host
-    # Uncomment and edit to configure PiKaraoke at container start. Anything
-    # not listed here can also be changed later from the Admin page.
-    # command:
-    #   - "-p"
-    #   - "8844"                          # Port PiKaraoke listens on. Required with host
-    #                                      # networking so multiple instances don't collide.
-    #   - "--url"
-    #   - "https://your-domain.example.com"  # Public URL used for the QR code / generated links
-    #   - "--admin-password"
-    #   - "your-admin-password"           # SECURITY: leave this flag out entirely and
-    #                                      # EVERYONE gets admin access -- no default lockout
-    #   - "--high-quality"                # Download videos at up to 1080p
-    #   - "--disable-bg-music"            # Turn off background music between songs
-    #   - "--disable-bg-video"            # Turn off background video on the splash screen
-    #   - "--disable-score"               # Turn off the post-song scoring screen
+    ports:
+      - 5555:5555
     volumes:
-      - pikaraoke_songs:/app/pikaraoke-songs
-      - pikaraoke_config:/home/pikaraoke/.pikaraoke
-    environment:
-      - TZ=UTC # Set to your local timezone, e.g. America/New_York
-    restart: unless-stopped
-volumes:
-  pikaraoke_songs:
-    driver: local
-  pikaraoke_config:
-    driver: local
+      - ~/pikaraoke-songs:/app/pikaraoke-songs
+      - ~/.pikaraoke:/home/pikaraoke/.pikaraoke
+    image: ghcr.io/adl101010/pikaraoke:stable
+    command: -u http://<YOUR_LAN_IP>:5555
 networks: {}
