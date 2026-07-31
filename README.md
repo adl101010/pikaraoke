@@ -21,6 +21,21 @@ None of this exists without the original project, so if it's made your parties b
 - **Friendlier bot protection** — An invisible trap link and a simple "you need to give a name" requirement keep bots from spamming the queue, without resorting to CAPTCHAs or IP-based rate limits (which would unfairly penalize a room full of guests sharing one WiFi network).
 - **Site-wide name prompt** — Everyone's asked for a display name on their first visit to any page, not just when searching, so the audit log and recap stats aren't full of "Anonymous."
 
+## Docker Compose
+
+This repo ships a bare-bones [docker-compose.yml](docker-compose.yml) that pulls this fork's prebuilt image instead of building from source:
+
+```sh
+docker compose up -d
+```
+
+Before running it:
+
+- Edit `command:` and replace `<YOUR_LAN_IP>` with your machine's local network IP (e.g. `http://192.168.1.50:5555`) — this is what gets baked into the QR code guests scan.
+- Edit the `TZ` environment variable to your local timezone (e.g. `America/Chicago`) so timestamps in the Admin panel and Recap page show up in local time instead of UTC.
+- Adjust the `5555:5555` port mapping if you want PiKaraoke on a different port.
+- The two `volumes:` bind mounts (`~/pikaraoke-songs`, `~/.pikaraoke`) persist your song library and settings/database across container restarts — change the left-hand paths if you'd rather store them somewhere else.
+
 ## Everything else
 
 For installation, usage, Docker instructions, and all the original PiKaraoke documentation, see **[docs/README.md](docs/README.md)**.
