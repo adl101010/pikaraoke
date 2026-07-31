@@ -1,5 +1,7 @@
 # PiKaraoke (personal fork)
 
+> **Disclaimer:** I'm not a developer. Every change in this fork was written, tested, and implemented with [Claude Code](https://claude.com/claude-code).
+
 <img width="588" height="339" alt="Image" src="https://i.ibb.co/Z6MTM4wt/pikaraoke-readme.png" />
 
 This is a personal fork of [vicwomg/pikaraoke](https://github.com/vicwomg/pikaraoke) — all credit for the original project goes to its creator and contributors. My friends and I have spent more late nights than we can count singing on this thing, and over time it's grown a pile of custom features built for how we actually use it at our parties. Sharing them here in case they're useful to anyone else running PiKaraoke for their own crew.
