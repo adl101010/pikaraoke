@@ -1,6 +1,6 @@
 # PiKaraoke (personal fork)
 
-> **Disclaimer:** I'm not a developer. Every change in this fork was written, tested, and implemented with [Claude Code](https://claude.com/claude-code).
+> **Disclaimer:** My background is in infrastructure, platform, and networking, not development. Every change in this fork was written, tested, and implemented with [Claude Code](https://claude.com/claude-code).
 
 <img width="588" height="339" alt="Image" src="https://i.ibb.co/Z6MTM4wt/pikaraoke-readme.png" />
 
