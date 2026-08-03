@@ -62,7 +62,7 @@ def queue():
     site_name = get_site_name()
     return render_template(
         "queue.html",
-        queue=k.queue_manager.queue,
+        queue=k.queue_manager.public_queue,
         site_title=site_name,
         title="Queue",
         admin=is_admin(),
@@ -73,7 +73,7 @@ def queue():
 def get_queue():
     """Get the current song queue."""
     k = get_karaoke_instance()
-    return json.dumps(k.queue_manager.queue)
+    return json.dumps(k.queue_manager.public_queue)
 
 
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])

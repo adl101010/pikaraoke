@@ -227,10 +227,9 @@
 
 		//for first time load of splash screen
 		loadNowPlaying();
-		//for pushed updates to now playing state
 		// Refetch rather than render the pushed payload: the broadcast goes to
-			// every client, so it can't say whether the song is *this* guest's.
-			window.socket.on("now_playing", loadNowPlaying);
+		// every client, so it can't say whether the song is *this* guest's.
+		window.socket.on("now_playing", loadNowPlaying);
 
 		//active singers sidebar
 		loadActiveSingers();
@@ -246,9 +245,7 @@
 				if (!window.socket.connected) {
 					console.log("Reconnecting socket...");
 					window.socket = io({ path: window.pikaraokeConfig.socketioPath });
-					// Refetch rather than render the pushed payload: the broadcast goes to
-			// every client, so it can't say whether the song is *this* guest's.
-			window.socket.on("now_playing", loadNowPlaying);
+					window.socket.on("now_playing", loadNowPlaying);
 					window.socket.on("queue_update", loadActiveSingers);
 				}
 			}
@@ -352,7 +349,7 @@
 			<a
 				id="skip-own"
 				class="button is-small is-rounded is-danger is-outlined"
-				style="display: none; vertical-align: middle"
+				style="display: none"
 			>
 				{# MSG: Label on the button letting a guest skip the song they queued themselves. #}
 				<i class="icon icon-to-end"></i>&nbsp;{% trans %}Skip mine{% endtrans %}

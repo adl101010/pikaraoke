@@ -34,6 +34,16 @@ class QueueManager:
         self._filename_from_path = filename_from_path
         self._get_available_songs = get_available_songs
 
+    @property
+    def public_queue(self) -> list[dict[str, Any]]:
+        """The queue with server-only fields removed, safe to hand to a browser.
+
+        device_id is what authorizes skipping your own song, so it must never
+        reach a client: HttpOnly stops page scripts reading the cookie, but
+        nothing stops someone replaying a token they were simply shown.
+        """
+        return [{k: v for k, v in item.items() if k != "device_id"} for item in self.queue]
+
     def is_song_in_queue(self, song_path: str) -> bool:
         """Check if a song is already in the queue."""
         return any(item["file"] == song_path for item in self.queue)

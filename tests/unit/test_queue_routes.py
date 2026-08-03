@@ -171,7 +171,7 @@ class TestQueueApiContract:
     def test_get_queue_returns_required_fields(self, mock_get_instance, client):
         """GET /get_queue must return all fields the frontend expects."""
         mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager.queue = [
+        mock_karaoke.queue_manager.public_queue = [
             {
                 "user": "TestUser",
                 "file": "/songs/Artist - Song---abc123.mp4",
@@ -195,10 +195,28 @@ class TestQueueApiContract:
         assert "semitones" in item
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
+    def test_get_queue_serves_the_public_view_not_the_raw_queue(self, mock_get_instance, client):
+        """Guards the device token: /get_queue must never serialize raw queue items."""
+        mock_karaoke = MagicMock()
+        mock_karaoke.queue_manager.queue = [
+            {"user": "Alice", "file": "/a.mp4", "title": "A", "semitones": 0, "device_id": "secret"}
+        ]
+        mock_karaoke.queue_manager.public_queue = [
+            {"user": "Alice", "file": "/a.mp4", "title": "A", "semitones": 0}
+        ]
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/get_queue")
+
+        assert response.status_code == 200
+        assert b"secret" not in response.data
+        assert "device_id" not in json.loads(response.data)[0]
+
+    @patch("pikaraoke.routes.queue.get_karaoke_instance")
     def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):
         """GET /get_queue must return empty array when queue is empty."""
         mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager.queue = []
+        mock_karaoke.queue_manager.public_queue = []
         mock_get_instance.return_value = mock_karaoke
 
         response = client.get("/get_queue")

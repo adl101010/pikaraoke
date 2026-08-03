@@ -4,6 +4,8 @@ These tests verify the QueueManager class independently of the Karaoke class,
 ensuring queue logic is correct and maintainable.
 """
 
+import json
+
 import pytest
 
 from pikaraoke.lib.events import EventSystem
@@ -631,3 +633,35 @@ class TestQueueManagerHelpers:
         )
 
         assert qm.is_user_limited("AnyUser") is False
+
+
+class TestPublicQueue:
+    """The client-facing queue must not carry the device token."""
+
+    def test_strips_device_id(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "Alice", device_id="device-alice")
+
+        public = queue_manager.public_queue
+
+        assert len(public) == 1
+        assert "device_id" not in public[0]
+        # Everything the UI actually renders survives.
+        assert public[0]["user"] == "Alice"
+        assert public[0]["file"] == "/songs/song1---abc.mp4"
+        assert public[0]["title"] == "song1"
+
+    def test_leaves_the_real_queue_intact(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "Alice", device_id="device-alice")
+
+        queue_manager.public_queue
+
+        assert queue_manager.queue[0]["device_id"] == "device-alice"
+
+    def test_no_device_token_appears_anywhere_in_the_payload(self, queue_manager):
+        queue_manager.enqueue("/songs/song1---abc.mp4", "Alice", device_id="secret-token")
+        queue_manager.enqueue("/songs/song2---def.mp4", "Bob", device_id="another-token")
+
+        serialized = json.dumps(queue_manager.public_queue)
+
+        assert "secret-token" not in serialized
+        assert "another-token" not in serialized

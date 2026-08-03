@@ -732,6 +732,8 @@
 									<th>{% trans %}Device{% endtrans %}</th>
 									{# MSG: Devices table column header for how many songs the device has sung. #}
 									<th>{% trans %}Songs{% endtrans %}</th>
+									{# MSG: Devices table column header for how many different display names the device has used. #}
+									<th title="{{ _('More than one means this device has changed its display name.') }}">{% trans %}Names{% endtrans %}</th>
 									{# MSG: Devices table column header for when the device was first seen. #}
 									<th>{% trans %}First Seen{% endtrans %}</th>
 									{# MSG: Devices table column header for when the device was last seen. #}
@@ -744,6 +746,13 @@
 									<td>{{ entry.name or "--" }}</td>
 									<td class="is-size-7" title="{{ entry.device_id }}">{{ entry.device_id[:6] ~ "…" }}</td>
 									<td>{{ entry.play_count }}</td>
+									<td>
+										{% if entry.name_count > 1 %}
+										<span class="has-text-warning" title="{{ _('This device has used more than one display name.') }}">{{ entry.name_count }}</span>
+										{% else %}
+										{{ entry.name_count }}
+										{% endif %}
+									</td>
 									<td class="is-size-7">{{ entry.first_seen|local_time or "--" }}</td>
 									<td class="is-size-7">{{ entry.last_seen|local_time or "--" }}</td>
 								</tr>
