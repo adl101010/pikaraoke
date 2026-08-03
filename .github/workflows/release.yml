@@ -27,9 +27,12 @@ jobs:
       - name: Work out the next version and write the notes
         id: plan
         env:
-          # The upstream release this fork diverged from. Only used for the
-          # very first fork release, to bound the commit range.
-          BASE_TAG: "1.21.0"
+          # The commit this fork diverged from (upstream's 1.21.0 release).
+          # Only used for the very first fork release, to bound the commit
+          # range. Deliberately a SHA, not the tag: upstream's tags live only
+          # in local clones and were never pushed here, so "1.21.0" doesn't
+          # resolve on the runner -- and a tag-based compare link would 404.
+          BASE_REF: "c1614c4b4f5d542a8cb560405e86f14018f22b33"
           FIRST_VERSION: "1.0.0"
         run: |
           set -euo pipefail
@@ -37,8 +40,12 @@ jobs:
           prev_tag="$(git tag -l 'v*' --sort=-v:refname | head -n1 || true)"
 
           if [ -z "$prev_tag" ]; then
-            range="${BASE_TAG}..HEAD"
-            compare_from="$BASE_TAG"
+            if ! git rev-parse --verify --quiet "${BASE_REF}^{commit}" >/dev/null; then
+              echo "BASE_REF ${BASE_REF} not found in this checkout." >&2
+              exit 1
+            fi
+            range="${BASE_REF}..HEAD"
+            compare_from="$BASE_REF"
             next="$FIRST_VERSION"
           else
             range="${prev_tag}..HEAD"
