@@ -275,7 +275,9 @@ class TestDownloadManagerAuditLog:
         return MagicMock()
 
     @pytest.fixture
-    def download_manager_with_audit(self, events, preferences, song_manager, queue_manager, audit_log):
+    def download_manager_with_audit(
+        self, events, preferences, song_manager, queue_manager, audit_log
+    ):
         return DownloadManager(
             events=events,
             preferences=preferences,
@@ -291,7 +293,13 @@ class TestDownloadManagerAuditLog:
     @patch("subprocess.Popen")
     @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
     def test_successful_download_is_logged(
-        self, mock_build_cmd, mock_popen, mock_gettext, download_manager_with_audit, song_manager, audit_log
+        self,
+        mock_build_cmd,
+        mock_popen,
+        mock_gettext,
+        download_manager_with_audit,
+        song_manager,
+        audit_log,
     ):
         mock_build_cmd.return_value = ["yt-dlp", "url"]
         mock_process = MagicMock()

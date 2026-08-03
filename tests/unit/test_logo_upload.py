@@ -15,12 +15,9 @@ from pikaraoke.routes.images import PNG_MAGIC_BYTES, images_bp
 from pikaraoke.routes.info import info_bp
 
 # A minimal but valid 1x1 PNG.
-VALID_PNG = (
-    PNG_MAGIC_BYTES
-    + bytes.fromhex(
-        "0000000d4948445200000001000000010802000000907753"
-        "de0000000c4944415478da6360606060000000050001a5f645400000000049454e44ae426082"
-    )
+VALID_PNG = PNG_MAGIC_BYTES + bytes.fromhex(
+    "0000000d4948445200000001000000010802000000907753"
+    "de0000000c4944415478da6360606060000000050001a5f645400000000049454e44ae426082"
 )
 
 
@@ -47,7 +44,9 @@ def fake_custom_logo_path(tmp_path):
 class TestUploadLogo:
     @patch("pikaraoke.routes.images.is_admin", return_value=False)
     @patch("pikaraoke.routes.images._", side_effect=lambda x: x)
-    def test_non_admin_upload_is_blocked(self, mock_gettext, mock_is_admin, client, fake_custom_logo_path):
+    def test_non_admin_upload_is_blocked(
+        self, mock_gettext, mock_is_admin, client, fake_custom_logo_path
+    ):
         response = client.post(
             "/logo/upload",
             data={"logo": (io.BytesIO(VALID_PNG), "logo.png")},
@@ -61,7 +60,13 @@ class TestUploadLogo:
     @patch("pikaraoke.routes.images.get_karaoke_instance")
     @patch("pikaraoke.routes.images._", side_effect=lambda x: x)
     def test_admin_upload_saves_file_and_updates_logo_path(
-        self, mock_gettext, mock_get_instance, mock_get_path, mock_is_admin, client, fake_custom_logo_path
+        self,
+        mock_gettext,
+        mock_get_instance,
+        mock_get_path,
+        mock_is_admin,
+        client,
+        fake_custom_logo_path,
     ):
         mock_get_path.return_value = fake_custom_logo_path
         mock_karaoke = MagicMock()
@@ -84,7 +89,13 @@ class TestUploadLogo:
     @patch("pikaraoke.routes.images.get_karaoke_instance")
     @patch("pikaraoke.routes.images._", side_effect=lambda x: x)
     def test_rejects_non_png_content(
-        self, mock_gettext, mock_get_instance, mock_get_path, mock_is_admin, client, fake_custom_logo_path
+        self,
+        mock_gettext,
+        mock_get_instance,
+        mock_get_path,
+        mock_is_admin,
+        client,
+        fake_custom_logo_path,
     ):
         mock_get_path.return_value = fake_custom_logo_path
         mock_get_instance.return_value = MagicMock()
@@ -103,7 +114,13 @@ class TestUploadLogo:
     @patch("pikaraoke.routes.images.get_karaoke_instance")
     @patch("pikaraoke.routes.images._", side_effect=lambda x: x)
     def test_rejects_oversized_file(
-        self, mock_gettext, mock_get_instance, mock_get_path, mock_is_admin, client, fake_custom_logo_path
+        self,
+        mock_gettext,
+        mock_get_instance,
+        mock_get_path,
+        mock_is_admin,
+        client,
+        fake_custom_logo_path,
     ):
         mock_get_path.return_value = fake_custom_logo_path
         mock_get_instance.return_value = MagicMock()
@@ -137,7 +154,13 @@ class TestResetLogo:
     @patch("pikaraoke.routes.images.get_karaoke_instance")
     @patch("pikaraoke.routes.images._", side_effect=lambda x: x)
     def test_admin_reset_removes_file_and_restores_default(
-        self, mock_gettext, mock_get_instance, mock_get_path, mock_is_admin, client, fake_custom_logo_path
+        self,
+        mock_gettext,
+        mock_get_instance,
+        mock_get_path,
+        mock_is_admin,
+        client,
+        fake_custom_logo_path,
     ):
         mock_get_path.return_value = fake_custom_logo_path
         with open(fake_custom_logo_path, "wb") as f:
@@ -158,7 +181,13 @@ class TestResetLogo:
     @patch("pikaraoke.routes.images.get_karaoke_instance")
     @patch("pikaraoke.routes.images._", side_effect=lambda x: x)
     def test_reset_when_no_custom_logo_exists(
-        self, mock_gettext, mock_get_instance, mock_get_path, mock_is_admin, client, fake_custom_logo_path
+        self,
+        mock_gettext,
+        mock_get_instance,
+        mock_get_path,
+        mock_is_admin,
+        client,
+        fake_custom_logo_path,
     ):
         mock_get_path.return_value = fake_custom_logo_path
         mock_karaoke = MagicMock()
