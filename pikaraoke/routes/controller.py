@@ -20,15 +20,30 @@ controller_bp = Blueprint("controller", __name__)
 
 @controller_bp.route("/skip")
 def skip():
-    """Skip the currently playing song."""
-    if not is_admin():
-        # MSG: Message shown after trying to skip a song without admin permissions.
-        flash(_("You don't have permission to skip songs"), "is-danger")
-        return redirect(url_for("home.home"))
+    """Skip the currently playing song.
+
+    Admins can skip anyone's song; everyone else can only skip their own.
+    Singer identity comes from the client's display-name cookie, which the
+    app already trusts for queue attribution and per-user limits -- good
+    enough to stop accidental skips at a party, not a security boundary.
+    """
     k = get_karaoke_instance()
+    user = request.args.get("user", "")
+    admin = is_admin()
+
+    if not admin:
+        if is_action_blocked(k, user):
+            return redirect(url_for("home.home"))
+        singer = k.playback_controller.now_playing_user or ""
+        if not singer or user.strip().casefold() != singer.strip().casefold():
+            # MSG: Message shown after trying to skip someone else's song without admin permissions.
+            flash(_("You can only skip your own songs"), "is-danger")
+            return redirect(url_for("home.home"))
+
     k.audit_log.record(
-        request.args.get("user", ""),
-        _("Skipped song"),
+        user,
+        # MSG: Audit log entry when an admin skips a song.
+        _("Skipped song") if admin else _("Skipped own song"),
         k.playback_controller.now_playing or "",
         get_client_ip(),
     )

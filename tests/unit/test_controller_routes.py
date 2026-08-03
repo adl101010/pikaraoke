@@ -37,7 +37,7 @@ def _unblocked_karaoke():
 
 
 class TestSkipRoute:
-    """Skipping the current song requires admin."""
+    """Admins skip anyone's song; everyone else only their own."""
 
     @patch("pikaraoke.routes.controller.is_admin", return_value=False)
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
@@ -75,6 +75,95 @@ class TestSkipRoute:
         mock_karaoke.audit_log.record.assert_called_once_with(
             "Alice", "Skipped song", "Bohemian Rhapsody", "127.0.0.1"
         )
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_non_admin_can_skip_own_song(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = "Bohemian Rhapsody"
+        mock_karaoke.playback_controller.now_playing_user = "Alice"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/skip?user=Alice")
+
+        assert response.status_code == 302
+        mock_karaoke.playback_controller.skip.assert_called_once()
+        mock_broadcast.assert_called_once_with("skip", "user command")
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Alice", "Skipped own song", "Bohemian Rhapsody", "127.0.0.1"
+        )
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_own_song_match_ignores_case_and_whitespace(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing_user = "Alice"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/skip?user=%20alice%20")
+
+        assert response.status_code == 302
+        mock_karaoke.playback_controller.skip.assert_called_once()
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_non_admin_cannot_skip_someone_elses_song(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing_user = "Bob"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/skip?user=Alice")
+
+        assert response.status_code == 302
+        mock_karaoke.playback_controller.skip.assert_not_called()
+        mock_karaoke.audit_log.record.assert_not_called()
+        mock_broadcast.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_no_singer_on_current_song_denies_self_skip(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing_user = ""
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/skip?user=Alice")
+
+        assert response.status_code == 302
+        mock_karaoke.playback_controller.skip.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_blocked_ip_cannot_self_skip(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = MagicMock()
+        mock_karaoke.ip_blocklist.is_blocked.return_value = True
+        mock_karaoke.playback_controller.now_playing_user = "Alice"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/skip?user=Alice")
+
+        assert response.status_code == 302
+        mock_karaoke.playback_controller.skip.assert_not_called()
+        mock_karaoke.audit_log.record.assert_not_called()
 
 
 class TestAuditLogging:
@@ -228,9 +317,7 @@ class TestActionBlocking:
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
-    def test_unflagged_ip_with_user_is_not_blocked(
-        self, mock_broadcast, mock_get_instance, client
-    ):
+    def test_unflagged_ip_with_user_is_not_blocked(self, mock_broadcast, mock_get_instance, client):
         mock_karaoke = _unblocked_karaoke()
         mock_get_instance.return_value = mock_karaoke
 

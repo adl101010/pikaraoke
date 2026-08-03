@@ -16,6 +16,14 @@
 
 	var lastQueue = [];
 	var currentSingerUser = null;
+	// Admins get the skip icon in the player controls instead, so they never
+	// see the self-skip button -- their skip already covers their own songs.
+	var isAdmin = {{ 'true' if admin else 'false' }};
+
+	function isOwnSong(singer) {
+		var me = (Cookies.get("user") || "").trim().toLowerCase();
+		return me !== "" && me === (singer || "").trim().toLowerCase();
+	}
 
 	function loadActiveSingers() {
 		$.get('{{ url_for("queue.get_queue") }}', function (data) {
@@ -65,8 +73,15 @@
 		renderActiveSingers();
 
 		if (np.now_playing) {
+			var skipOwnButton = "";
+			if (!isAdmin && isOwnSong(np.now_playing_user)) {
+				skipOwnButton = `<a id="skip-own" class="button is-small is-rounded is-danger is-outlined">
+            {# MSG: Label on the button letting a guest skip the song they queued themselves. #}
+            <i class="icon icon-to-end"></i>&nbsp;{{ _('Skip my song') | forceescape }}</a>`;
+			}
 			var nowPlayingHtml = `<p style="margin-bottom: 5px">${escapeHtml(np.now_playing)}</p>
-          <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${escapeHtml(np.now_playing_user)}</p>`;
+          <p class="has-text-success" style="margin-bottom: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+            <span><i class="icon icon-mic-1" title="Current singer"></i>${escapeHtml(np.now_playing_user)}</span>${skipOwnButton}</p>`;
 
 			if (np.now_playing_transpose != 0) {
 				nowPlayingHtml +=
@@ -184,6 +199,17 @@
 			r = confirm(
 				// {# MSG: Confirmation message when clicking a button to skip a track. #}
 				{{ _("Are you sure you want to skip this track? If you didn't add this song, ask permission first!") | tojson }}
+			);
+			if (r) {
+				$.get(window.pikaraokeConfig.basePath + "/skip?user=" + getActionUser());
+			}
+		});
+
+		// Delegated: the self-skip button is re-rendered on every now-playing update.
+		$(document).on("click", "#skip-own", function () {
+			r = confirm(
+				// {# MSG: Confirmation message when a guest skips their own song. #}
+				{{ _("Skip your song? It'll move on to whoever is up next.") | tojson }}
 			);
 			if (r) {
 				$.get(window.pikaraokeConfig.basePath + "/skip?user=" + getActionUser());
@@ -313,8 +339,10 @@
 <div class="has-background-black-bis box control-box" style="max-width: 500px; display: none">
 	{# MSG: Title of the box with controls such as pause and skip. #}
 	<h4>{% trans %}Player Control{% endtrans %}</h4>
-	<div class="is-size-3" style="display: flex; justify-content: space-between">
-		<div class="is-size-3">
+	{# Both groups are shrink-proof and nowrap so a narrow phone moves the whole
+	   volume group to its own line instead of orphaning the last playback icon. #}
+	<div class="is-size-3" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px">
+		<div class="is-size-3" style="flex-shrink: 0; white-space: nowrap">
 			{# MSG: Title attribute on the button to restart the current song. #}
 			<a title="{{ _('Restart Song') }}" id="restart"><i class="icon icon-to-start"></i> </a>&nbsp;&nbsp; {# MSG:
 			Title attribute on the button to play or pause the current song. #}
@@ -324,7 +352,7 @@
 			<a title="{{ _('Stop Current Song') }}" id="skip"><i class="icon icon-to-end"></i> </a>
 			{% endif %}
 		</div>
-		<div class="is-size-3" style="display: flex; align-items: center">
+		<div class="is-size-3" style="display: flex; align-items: center; flex-shrink: 0">
 			<i id="vol-down" class="icon icon-volume-down"></i>
 			<input
 				type="range"
