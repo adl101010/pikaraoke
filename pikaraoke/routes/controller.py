@@ -7,6 +7,7 @@ from flask_smorest import Blueprint
 from pikaraoke.lib.current_app import (
     broadcast_event,
     get_client_ip,
+    get_device_id,
     get_karaoke_instance,
     is_action_blocked,
     is_admin,
@@ -23,19 +24,18 @@ def skip():
     """Skip the currently playing song.
 
     Admins can skip anyone's song; everyone else can only skip their own.
-    Singer identity comes from the client's display-name cookie, which the
-    app already trusts for queue attribution and per-user limits -- good
-    enough to stop accidental skips at a party, not a security boundary.
+    Ownership is keyed on the device that queued the song, not the display
+    name -- renaming yourself to match the current singer grants nothing.
     """
     k = get_karaoke_instance()
     user = request.args.get("user", "")
+    device_id = get_device_id()
     admin = is_admin()
 
     if not admin:
         if is_action_blocked(k, user):
             return redirect(url_for("home.home"))
-        singer = k.playback_controller.now_playing_user or ""
-        if not singer or user.strip().casefold() != singer.strip().casefold():
+        if not device_id or device_id != k.playback_controller.now_playing_device:
             # MSG: Message shown after trying to skip someone else's song without admin permissions.
             flash(_("You can only skip your own songs"), "is-danger")
             return redirect(url_for("home.home"))
@@ -46,6 +46,7 @@ def skip():
         _("Skipped song") if admin else _("Skipped own song"),
         k.playback_controller.now_playing or "",
         get_client_ip(),
+        device_id,
     )
     broadcast_event("skip", "user command")
     k.playback_controller.skip()

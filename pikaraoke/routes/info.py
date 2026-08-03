@@ -41,6 +41,7 @@ def info():
     audit_log_entries = k.audit_log.get_recent(100) if is_admin() else []
     blocked_ips = k.ip_blocklist.get_all() if is_admin() else []
     top_songs = k.db.get_top_songs(10) if is_admin() else []
+    device_stats = k.db.get_device_stats() if is_admin() else []
 
     session_history = []
     if is_admin():
@@ -113,6 +114,7 @@ def info():
         audit_log_entries=audit_log_entries,
         blocked_ips=blocked_ips,
         top_songs=top_songs,
+        device_stats=device_stats,
         session_history=session_history,
     )
 

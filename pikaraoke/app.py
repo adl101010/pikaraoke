@@ -10,6 +10,7 @@ monkey.patch_all()
 
 import logging
 import os
+import secrets
 import sys
 from pathlib import Path
 from urllib.parse import quote
@@ -23,7 +24,12 @@ from pikaraoke import VERSION, karaoke
 from pikaraoke.constants import LANGUAGES
 from pikaraoke.lib.args import parse_pikaraoke_args
 from pikaraoke.lib.browser import Browser
-from pikaraoke.lib.current_app import get_csrf_token, get_karaoke_instance
+from pikaraoke.lib.current_app import (
+    DEVICE_COOKIE,
+    DEVICE_COOKIE_MAX_AGE,
+    get_csrf_token,
+    get_karaoke_instance,
+)
 from pikaraoke.lib.ffmpeg import is_ffmpeg_installed
 from pikaraoke.lib.file_resolver import delete_tmp_dir
 from pikaraoke.lib.get_platform import (
@@ -150,6 +156,27 @@ def get_locale() -> str | None:
     # An unknown code (a stale session cookie, a hand-edited ?lang=) makes Babel raise
     # UnknownLocaleError on every render, so never hand one back.
     return locale if locale in LANGUAGES else None
+
+
+@app.after_request
+def issue_device_id(response):
+    """Give each browser a stable, non-user-editable id on its first page load.
+
+    Set server-side rather than from JavaScript so Safari doesn't cap it at
+    7 days. Restricted to HTML responses: polling endpoints and static assets
+    don't need it, and issuing on every response would race several different
+    ids onto the same first visit.
+    """
+    if response.mimetype == "text/html" and not request.cookies.get(DEVICE_COOKIE):
+        response.set_cookie(
+            DEVICE_COOKIE,
+            secrets.token_urlsafe(12),
+            max_age=DEVICE_COOKIE_MAX_AGE,
+            httponly=True,
+            samesite="Lax",
+            path=app.config["SESSION_COOKIE_PATH"],
+        )
+    return response
 
 
 @app.context_processor

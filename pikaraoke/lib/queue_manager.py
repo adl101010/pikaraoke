@@ -106,6 +106,7 @@ class QueueManager:
         semitones: int = 0,
         add_to_front: bool = False,
         log_action: bool = True,
+        device_id: str = "",
     ) -> list[bool | str]:
         """Add a song to the queue. Returns [success, message]."""
         title = self._resolve_title(song_path)
@@ -130,6 +131,7 @@ class QueueManager:
             "file": song_path,
             "title": title,
             "semitones": semitones,
+            "device_id": device_id,
         }
         if add_to_front:
             # MSG: Message shown after the song is added to the top of the queue

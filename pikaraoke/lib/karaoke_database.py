@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS play_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_path TEXT NOT NULL,
     user TEXT,
+    device_id TEXT,
     played_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -50,6 +51,16 @@ CREATE INDEX IF NOT EXISTS idx_play_events_played_at ON play_events(played_at);
 CREATE TABLE IF NOT EXISTS session_names (
     started_at TEXT PRIMARY KEY,
     name TEXT NOT NULL
+);
+
+-- One row per browser that has ever queued a song. `name` is the display
+-- name that device is currently using; play_events keeps the name as it was
+-- at the time, so renaming yourself doesn't rewrite history.
+CREATE TABLE IF NOT EXISTS devices (
+    device_id TEXT PRIMARY KEY,
+    name TEXT,
+    first_seen TEXT DEFAULT CURRENT_TIMESTAMP,
+    last_seen TEXT DEFAULT CURRENT_TIMESTAMP
 );
 """
 
@@ -95,6 +106,15 @@ class KaraokeDatabase:
                 )
             if "last_played_at" not in columns:
                 self._conn.execute("ALTER TABLE songs ADD COLUMN last_played_at TEXT")
+
+        # Plays recorded before device tracking existed keep a NULL device_id --
+        # they can't be attributed retroactively, so per-device stats start here.
+        play_event_columns = {
+            row[1] for row in self._conn.execute("PRAGMA table_info(play_events)")
+        }
+        if "device_id" not in play_event_columns:
+            with self._conn:
+                self._conn.execute("ALTER TABLE play_events ADD COLUMN device_id TEXT")
 
     # ------------------------------------------------------------------
     # Read operations
@@ -217,7 +237,7 @@ class KaraokeDatabase:
         """Update a single song's file path (UI-triggered rename)."""
         self.update_paths([(old_path, new_path)])
 
-    def record_play(self, file_path: str, user: str) -> None:
+    def record_play(self, file_path: str, user: str, device_id: str = "") -> None:
         """Record a play: bumps the song's lifetime count and logs a play event.
 
         The lifetime count update is a no-op if the path isn't in the library,
@@ -234,9 +254,43 @@ class KaraokeDatabase:
                 (file_path,),
             )
             self._conn.execute(
-                "INSERT INTO play_events (file_path, user) VALUES (?, ?)",
-                (file_path, user),
+                "INSERT INTO play_events (file_path, user, device_id) VALUES (?, ?, ?)",
+                (file_path, user, device_id or None),
             )
+
+    def record_device(self, device_id: str, name: str) -> None:
+        """Remember a device and the display name it's currently using."""
+        if not device_id:
+            return
+        with self._lock, self._conn:
+            self._conn.execute(
+                """
+                INSERT INTO devices (device_id, name) VALUES (?, ?)
+                ON CONFLICT(device_id) DO UPDATE
+                SET name = excluded.name, last_seen = CURRENT_TIMESTAMP
+                """,
+                (device_id, name),
+            )
+
+    def get_device_stats(self) -> list[dict]:
+        """Lifetime per-device totals, most songs first.
+
+        Only covers plays recorded since device tracking was added; older
+        play_events have no device_id and are excluded.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT d.device_id, d.name, d.first_seen, d.last_seen,
+                       COUNT(p.id) AS play_count,
+                       COUNT(DISTINCT p.user) AS name_count
+                FROM devices d
+                LEFT JOIN play_events p ON p.device_id = d.device_id
+                GROUP BY d.device_id
+                ORDER BY play_count DESC, d.last_seen DESC
+                """
+            ).fetchall()
+            return [dict(row) for row in rows]
 
     def get_all_play_events(self) -> list[dict]:
         """Return the full play event history, oldest first.
@@ -246,7 +300,8 @@ class KaraokeDatabase:
         """
         with self._lock:
             rows = self._conn.execute(
-                "SELECT file_path, user, played_at FROM play_events ORDER BY played_at ASC"
+                "SELECT file_path, user, device_id, played_at FROM play_events "
+                "ORDER BY played_at ASC"
             ).fetchall()
             return [dict(row) for row in rows]
 

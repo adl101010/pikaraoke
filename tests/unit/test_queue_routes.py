@@ -50,12 +50,18 @@ class TestEnqueueAuditLogging:
         mock_karaoke.song_manager.display_name_from_path.return_value = "Artist - Song"
         mock_get_instance.return_value = mock_karaoke
 
+        client.set_cookie("device_id", "device-frank")
+
         response = client.get("/enqueue?song=/songs/a.mp4&user=Frank")
 
         assert response.status_code == 200
         mock_karaoke.audit_log.record.assert_called_once_with(
-            "Frank", "Queued song", "Artist - Song", "127.0.0.1"
+            "Frank", "Queued song", "Artist - Song", "127.0.0.1", "device-frank"
         )
+        mock_karaoke.queue_manager.enqueue.assert_called_once_with(
+            "/songs/a.mp4", "Frank", device_id="device-frank"
+        )
+        mock_karaoke.db.record_device.assert_called_once_with("device-frank", "Frank")
 
     @patch("pikaraoke.routes.queue.get_karaoke_instance")
     @patch("pikaraoke.routes.queue.broadcast_event")

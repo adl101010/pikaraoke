@@ -20,11 +20,6 @@
 	// see the self-skip button -- their skip already covers their own songs.
 	var isAdmin = {{ 'true' if admin else 'false' }};
 
-	function isOwnSong(singer) {
-		var me = (Cookies.get("user") || "").trim().toLowerCase();
-		return me !== "" && me === (singer || "").trim().toLowerCase();
-	}
-
 	function loadActiveSingers() {
 		$.get('{{ url_for("queue.get_queue") }}', function (data) {
 			lastQueue = JSON.parse(data);
@@ -73,8 +68,9 @@
 		renderActiveSingers();
 
 		if (np.now_playing) {
-			// The self-skip button lives in the player controls, next to pause.
-			$("#skip-own").toggle(!isAdmin && isOwnSong(np.now_playing_user));
+			// Ownership is decided server-side (the device cookie is HttpOnly), and
+			// is absent from SocketIO broadcasts -- default to hiding the button.
+			$("#skip-own").toggle(!isAdmin && !!np.now_playing_is_mine);
 
 			var nowPlayingHtml = `<p style="margin-bottom: 5px">${escapeHtml(np.now_playing)}</p>
           <p class="has-text-success" style="margin-bottom: 5px"><i class="icon icon-mic-1" title="Current singer"></i>${escapeHtml(np.now_playing_user)}</p>`;
@@ -232,7 +228,9 @@
 		//for first time load of splash screen
 		loadNowPlaying();
 		//for pushed updates to now playing state
-		window.socket.on("now_playing", (np) => handleNowPlaying(np));
+		// Refetch rather than render the pushed payload: the broadcast goes to
+			// every client, so it can't say whether the song is *this* guest's.
+			window.socket.on("now_playing", loadNowPlaying);
 
 		//active singers sidebar
 		loadActiveSingers();
@@ -248,7 +246,9 @@
 				if (!window.socket.connected) {
 					console.log("Reconnecting socket...");
 					window.socket = io({ path: window.pikaraokeConfig.socketioPath });
-					window.socket.on("now_playing", (np) => handleNowPlaying(np));
+					// Refetch rather than render the pushed payload: the broadcast goes to
+			// every client, so it can't say whether the song is *this* guest's.
+			window.socket.on("now_playing", loadNowPlaying);
 					window.socket.on("queue_update", loadActiveSingers);
 				}
 			}

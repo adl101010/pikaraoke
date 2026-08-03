@@ -615,12 +615,14 @@ class Karaoke:
                     song = self.queue_manager.pop_next()
                     if not song:
                         continue
+                    # Songs queued before device tracking existed have no key.
+                    device_id = song.get("device_id", "")
                     result = self.playback_controller.play_file(
-                        song["file"], song["user"], song["semitones"]
+                        song["file"], song["user"], song["semitones"], device_id
                     )
 
                     if result.success:
-                        self.db.record_play(song["file"], song["user"])
+                        self.db.record_play(song["file"], song["user"], device_id)
                     elif result.error:
                         self.log_and_send(result.error, "danger")
 

@@ -13,6 +13,7 @@ from marshmallow import Schema, fields
 from pikaraoke.lib.current_app import (
     broadcast_event,
     get_client_ip,
+    get_device_id,
     get_karaoke_instance,
     get_site_name,
     is_action_blocked,
@@ -188,10 +189,12 @@ def _do_enqueue(song: str, user: str) -> str:
         return json.dumps(
             {"song": song_title, "success": [False, _("Song could not be added to the queue")]}
         )
-    rc = k.queue_manager.enqueue(song, user)
+    device_id = get_device_id()
+    rc = k.queue_manager.enqueue(song, user, device_id=device_id)
     broadcast_event("queue_update")
     if rc[0]:
-        k.audit_log.record(user, _("Queued song"), song_title, get_client_ip())
+        k.db.record_device(device_id, user)
+        k.audit_log.record(user, _("Queued song"), song_title, get_client_ip(), device_id)
     return json.dumps({"song": song_title, "success": rc})
 
 

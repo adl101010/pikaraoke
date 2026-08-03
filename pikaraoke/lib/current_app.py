@@ -13,6 +13,23 @@ from flask_socketio import emit
 
 from pikaraoke.karaoke import Karaoke
 
+DEVICE_COOKIE = "device_id"
+
+# Ten years. Matches the display-name cookie, but this one is set by the
+# server rather than JavaScript, so Safari's 7-day cap on script-written
+# cookies doesn't silently shorten it.
+DEVICE_COOKIE_MAX_AGE = 10 * 365 * 24 * 60 * 60
+
+
+def get_device_id() -> str:
+    """Stable per-browser identifier for the requesting device.
+
+    Unlike the display name, this isn't user-editable -- renaming yourself
+    doesn't change it -- so it's what permission checks key on. Empty for a
+    client that hasn't been issued one yet (its very first request).
+    """
+    return request.cookies.get(DEVICE_COOKIE, "")
+
 
 def get_csrf_token() -> str:
     """Get-or-create a per-session CSRF token for admin form submissions.

@@ -416,3 +416,84 @@ class TestUnicodeFilenames:
         path = "/songs/Céline Dion - My Heart---abc1234567x.mp4"
         db.insert_songs([{"file_path": path, "youtube_id": "abc1234567x", "format": "mp4"}])
         assert db.get_all_song_paths() == [path]
+
+
+class TestDeviceTracking:
+    def test_record_play_stores_device_id(self, db):
+        db.record_play("/songs/test.mp4", "Alice", "device-alice")
+        events = db.get_all_play_events()
+        assert events[0]["device_id"] == "device-alice"
+
+    def test_record_play_without_device_stores_null(self, db):
+        db.record_play("/songs/test.mp4", "Alice")
+        row = db._conn.execute("SELECT device_id FROM play_events").fetchone()
+        assert row[0] is None
+
+    def test_record_device_upserts_name_on_rename(self, db):
+        db.record_device("device-alice", "Alice")
+        db.record_device("device-alice", "Alice2")
+        rows = db._conn.execute("SELECT device_id, name FROM devices").fetchall()
+        assert len(rows) == 1
+        assert rows[0][1] == "Alice2"
+
+    def test_record_device_ignores_empty_id(self, db):
+        db.record_device("", "Alice")
+        assert db._conn.execute("SELECT COUNT(*) FROM devices").fetchone()[0] == 0
+
+    def test_device_stats_counts_plays_per_device(self, db):
+        db.record_device("device-alice", "Alice")
+        db.record_device("device-bob", "Bob")
+        db.record_play("/songs/a.mp4", "Alice", "device-alice")
+        db.record_play("/songs/b.mp4", "Alice", "device-alice")
+        db.record_play("/songs/c.mp4", "Bob", "device-bob")
+
+        stats = {row["device_id"]: row for row in db.get_device_stats()}
+
+        assert stats["device-alice"]["play_count"] == 2
+        assert stats["device-bob"]["play_count"] == 1
+        assert stats["device-alice"]["name"] == "Alice"
+
+    def test_device_stats_excludes_untracked_plays(self, db):
+        db.record_device("device-alice", "Alice")
+        db.record_play("/songs/legacy.mp4", "Alice")  # pre-tracking, no device
+
+        stats = db.get_device_stats()
+
+        assert len(stats) == 1
+        assert stats[0]["play_count"] == 0
+
+    def test_device_stats_reports_distinct_names_used(self, db):
+        db.record_device("device-alice", "Alice2")
+        db.record_play("/songs/a.mp4", "Alice", "device-alice")
+        db.record_play("/songs/b.mp4", "Alice2", "device-alice")
+
+        assert db.get_device_stats()[0]["name_count"] == 2
+
+
+class TestDeviceSchemaMigration:
+    def test_adds_device_id_to_existing_play_events(self, tmp_path):
+        db_path = str(tmp_path / "old.db")
+        conn = sqlite3.connect(db_path)
+        conn.executescript(
+            """
+            CREATE TABLE play_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                file_path TEXT NOT NULL,
+                user TEXT,
+                played_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO play_events (file_path, user) VALUES ('/songs/old.mp4', 'Alice');
+            """
+        )
+        conn.commit()
+        conn.close()
+
+        db = KaraokeDatabase(db_path)
+        try:
+            events = db.get_all_play_events()
+            assert len(events) == 1
+            assert events[0]["device_id"] is None
+            db.record_play("/songs/new.mp4", "Bob", "device-bob")
+            assert db.get_all_play_events()[-1]["device_id"] == "device-bob"
+        finally:
+            db.close()

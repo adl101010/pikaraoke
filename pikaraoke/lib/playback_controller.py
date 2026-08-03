@@ -26,6 +26,9 @@ class PlaybackController:
         now_playing: Title of the currently playing song.
         now_playing_filename: File path of the currently playing song.
         now_playing_user: User who queued the current song.
+        now_playing_device: Device that queued it. Deliberately kept out of
+            get_now_playing() -- that payload is broadcast to every client,
+            and the token is what authorizes a self-skip.
         now_playing_transpose: Semitones to transpose current song.
         now_playing_duration: Duration of current song in seconds.
         now_playing_url: Stream URL for current song.
@@ -39,6 +42,7 @@ class PlaybackController:
     now_playing: str | None = None
     now_playing_filename: str | None = None
     now_playing_user: str | None = None
+    now_playing_device: str | None = None
     now_playing_transpose: int = 0
     now_playing_duration: int | None = None
     now_playing_url: str | None = None
@@ -74,7 +78,9 @@ class PlaybackController:
         """Get the current FFmpeg process."""
         return self.stream_manager.ffmpeg_process
 
-    def play_file(self, file_path: str, user: str, semitones: int = 0) -> PlaybackResult:
+    def play_file(
+        self, file_path: str, user: str, semitones: int = 0, device_id: str = ""
+    ) -> PlaybackResult:
         """Start playback of a media file.
 
         Blocks until client connects or timeout occurs.
@@ -83,6 +89,7 @@ class PlaybackController:
             file_path: Path to the media file to play.
             user: User who queued the song.
             semitones: Number of semitones to transpose (0 = no change).
+            device_id: Device that queued the song, for self-skip checks.
 
         Returns:
             PlaybackResult with success status and stream information.
@@ -104,6 +111,7 @@ class PlaybackController:
         self.now_playing = self.filename_from_path(file_path, remove_youtube_id=True)
         self.now_playing_filename = file_path
         self.now_playing_user = user
+        self.now_playing_device = device_id
         self.now_playing_transpose = semitones
         self.now_playing_duration = result.duration
         self.now_playing_url = result.stream_url
@@ -221,6 +229,7 @@ class PlaybackController:
         self.now_playing = None
         self.now_playing_filename = None
         self.now_playing_user = None
+        self.now_playing_device = None
         self.now_playing_url = None
         self.now_playing_subtitle_url = None
         self.is_paused = True

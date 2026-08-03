@@ -597,6 +597,8 @@
 									<th>{% trans %}User{% endtrans %}</th>
 									{# MSG: Audit log table column header for the requesting client's IP address. #}
 									<th>{% trans %}IP Address{% endtrans %}</th>
+									{# MSG: Audit log table column header for the browser/device that acted. #}
+									<th>{% trans %}Device{% endtrans %}</th>
 									{# MSG: Audit log table column header for what action was performed. #}
 									<th>{% trans %}Action{% endtrans %}</th>
 								</tr>
@@ -607,6 +609,9 @@
 									<td class="is-size-7">{{ entry.timestamp|local_time }}</td>
 									<td>{{ entry.user }}</td>
 									<td class="is-size-7">{{ entry.ip_address or "--" }}</td>
+									<td class="is-size-7" title="{{ entry.device_id or '' }}">
+										{{ entry.device_id[:6] ~ "…" if entry.device_id else "--" }}
+									</td>
 									<td>{{ entry.action }}{% if entry.detail %} &mdash; {{ entry.detail }}{% endif %}</td>
 								</tr>
 								{% endfor %}
@@ -701,6 +706,53 @@
 					</table>
 					{% else %}
 					<p class="has-text-grey">{% trans %}No songs played yet.{% endtrans %}</p>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Devices section of preferences #}{% trans %}Devices{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey">
+						{# MSG: Explanation of the Devices section on the admin page. #}
+						{% trans %}One row per phone or browser that has queued a song. Songs are counted from when device tracking was added, so older plays aren't included. A device is a browser, not a person: a shared phone counts once, and someone using both a phone and a laptop counts twice.{% endtrans %}
+					</p>
+					{% if device_stats %}
+					<div style="overflow-x: auto; max-height: 360px; overflow-y: auto;">
+						<table class="table is-striped is-fullwidth is-narrow">
+							<thead>
+								<tr>
+									{# MSG: Devices table column header for the display name the device currently uses. #}
+									<th>{% trans %}Name{% endtrans %}</th>
+									{# MSG: Devices table column header for the device's short identifier. #}
+									<th>{% trans %}Device{% endtrans %}</th>
+									{# MSG: Devices table column header for how many songs the device has sung. #}
+									<th>{% trans %}Songs{% endtrans %}</th>
+									{# MSG: Devices table column header for when the device was first seen. #}
+									<th>{% trans %}First Seen{% endtrans %}</th>
+									{# MSG: Devices table column header for when the device was last seen. #}
+									<th>{% trans %}Last Seen{% endtrans %}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for entry in device_stats %}
+								<tr>
+									<td>{{ entry.name or "--" }}</td>
+									<td class="is-size-7" title="{{ entry.device_id }}">{{ entry.device_id[:6] ~ "…" }}</td>
+									<td>{{ entry.play_count }}</td>
+									<td class="is-size-7">{{ entry.first_seen|local_time or "--" }}</td>
+									<td class="is-size-7">{{ entry.last_seen|local_time or "--" }}</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% else %}
+					<p class="has-text-grey">{% trans %}No devices seen yet.{% endtrans %}</p>
 					{% endif %}
 				</div>
 			</div>
