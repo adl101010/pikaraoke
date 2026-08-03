@@ -1,0 +1,118 @@
+name: Release
+
+# Every promotion to master publishes a GitHub Release, so the Releases page
+# is a running changelog of what's actually deployed as :stable.
+#
+# Fork releases are tagged v<semver>. Upstream's inherited tags have no prefix
+# (1.0.0 ... 1.21.0), so the "v" keeps the two sets from colliding and makes it
+# obvious at a glance which releases belong to this fork.
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the next version and write the notes
+        id: plan
+        env:
+          # The upstream release this fork diverged from. Only used for the
+          # very first fork release, to bound the commit range.
+          BASE_TAG: "1.21.0"
+          FIRST_VERSION: "1.0.0"
+        run: |
+          set -euo pipefail
+
+          prev_tag="$(git tag -l 'v*' --sort=-v:refname | head -n1 || true)"
+
+          if [ -z "$prev_tag" ]; then
+            range="${BASE_TAG}..HEAD"
+            compare_from="$BASE_TAG"
+            next="$FIRST_VERSION"
+          else
+            range="${prev_tag}..HEAD"
+            compare_from="$prev_tag"
+            subjects="$(git log --format=%s "$range")"
+            bodies="$(git log --format=%B "$range")"
+            if printf '%s' "$subjects" | grep -qE '^[a-z]+(\([^)]*\))?!:' \
+              || printf '%s' "$bodies" | grep -q 'BREAKING CHANGE'; then
+              bump=major
+            elif printf '%s' "$subjects" | grep -qE '^feat(\([^)]*\))?:'; then
+              bump=minor
+            else
+              bump=patch
+            fi
+            IFS=. read -r maj min pat <<<"${prev_tag#v}"
+            case "$bump" in
+              major) maj=$((maj + 1)); min=0; pat=0 ;;
+              minor) min=$((min + 1)); pat=0 ;;
+              patch) pat=$((pat + 1)) ;;
+            esac
+            next="${maj}.${min}.${pat}"
+          fi
+
+          count="$(git rev-list --count "$range")"
+          notes="${RUNNER_TEMP}/notes.md"
+
+          section() {
+            local title="$1" pattern="$2" lines
+            lines="$(git log --reverse --format='%h %s' "$range" | grep -E " ${pattern}" || true)"
+            [ -z "$lines" ] && return 0
+            printf '### %s\n\n' "$title" >>"$notes"
+            while read -r sha subject; do
+              clean="$(printf '%s' "$subject" | sed -E 's/^[a-z]+(\([^)]*\))?!?: *//')"
+              printf -- '- %s (%s)\n' "$clean" "$sha" >>"$notes"
+            done <<<"$lines"
+            printf '\n' >>"$notes"
+          }
+
+          : >"$notes"
+          section "Features" 'feat(\([^)]*\))?!?:'
+          section "Bug Fixes" 'fix(\([^)]*\))?!?:'
+          section "Performance" 'perf(\([^)]*\))?!?:'
+          section "Refactoring" 'refactor(\([^)]*\))?!?:'
+          section "Documentation" 'docs(\([^)]*\))?!?:'
+          section "Maintenance" '(chore|ci|style|test|build)(\([^)]*\))?!?:'
+
+          {
+            printf -- '---\n\n'
+            printf 'Deployed as `ghcr.io/%s:stable`.\n\n' "${GITHUB_REPOSITORY,,}"
+            printf '**Full diff**: https://github.com/%s/compare/%s...v%s\n' \
+              "$GITHUB_REPOSITORY" "$compare_from" "$next"
+          } >>"$notes"
+
+          {
+            echo "version=v${next}"
+            echo "count=${count}"
+            echo "notes_file=${notes}"
+          } >>"$GITHUB_OUTPUT"
+
+          echo "Releasing v${next} with ${count} commit(s) since ${compare_from}."
+
+      - name: Tag and publish
+        if: steps.plan.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          NOTES_FILE: ${{ steps.plan.outputs.notes_file }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "$VERSION"
+          git push origin "$VERSION"
+          gh release create "$VERSION" \
+            --title "$VERSION" \
+            --notes-file "$NOTES_FILE" \
+            --latest
