@@ -10,14 +10,17 @@ None of this exists without the original project, so if it's made your parties b
 
 ## Custom features & improvements
 
-- **Public player controls** — Play, pause, transpose, and volume no longer require the admin password, so anyone at the party can help run the show. Skip stays admin-only, since letting anyone cut off a performer felt like a step too far.
+- **Public player controls** — Play, pause, transpose, and volume no longer require the admin password, so anyone at the party can help run the show.
+- **Skip your own song** — Picked the wrong version, or want to bail halfway through? A "Skip mine" button appears in the player controls while your own song is playing. Skipping anyone *else's* still takes an admin, since cutting off another singer felt like a step too far.
+- **Guests are known by device, not by the name they type** — Display names are just a cookie anyone can edit, so each phone quietly gets its own private ID as well. That's what decides whether a song is yours to skip, so renaming yourself to match whoever's on the mic doesn't get you anything. Admins get a per-device view of how many songs each phone has sung, flagged when one device has gone by more than one name.
 - **Color themes** — Four selectable themes: Dark "Neon Tiki", Light "Daylight Lounge", Sage "Cozy Whiskers" (a dark teal, cat-inspired palette), and a "Classic" option that restores the original look. Switchable from the admin panel with a custom font.
 - **Custom logo upload** — Admins can upload their own logo image right from the admin panel, no file editing required.
 - **Lifetime song stats** — PiKaraoke now remembers how many times every song has ever been played, viewable sorted by popularity in the Library page (formerly "Browse"), which also spotlights the 3 most-played songs up top for quick access.
 - **Tonight's Recap** — A live page showing the current (or most recent) karaoke session: total songs sung, who showed up, an MVP singer, the most-played songs, and a click-to-expand list of exactly what each singer sang. Admins can name sessions (e.g. "John's Birthday") and browse a full history of past sessions from the admin panel.
 - **Active Singers sidebar** — See at a glance who currently has a song queued up, including whoever's performing right now.
 - **Per-user queue limit** — Defaults to 5 songs per person (including whatever's currently playing), so one enthusiastic guest can't monopolize the whole night. Adjustable by admins.
-- **Audit log** — The admin panel logs who queued, paused, skipped, transposed, changed volume, or downloaded a song, so it's easy to see what's been happening.
+- **Audit log** — The admin panel logs who queued, paused, skipped, transposed, changed volume, or downloaded a song, so it's easy to see what's been happening. Each entry records the device alongside the name, so two phones both calling themselves "Dave" are still tellable apart.
+- **Timestamps in your own timezone** — Times across the admin panel and recap page follow the `TZ` you set in Docker and read as plain 12-hour clock times, rather than the UTC the database stores.
 - **Friendlier bot protection** — An invisible trap link and a simple "you need to give a name" requirement keep bots from spamming the queue, without resorting to CAPTCHAs or IP-based rate limits (which would unfairly penalize a room full of guests sharing one WiFi network).
 - **Site-wide name prompt** — Everyone's asked for a display name on their first visit to any page, not just when searching, so the audit log and recap stats aren't full of "Anonymous."
 
@@ -38,6 +41,10 @@ Before running it:
 - The two `volumes:` bind mounts (`~/pikaraoke-songs`, `~/.pikaraoke`) persist your song library and settings/database across container restarts — change the left-hand paths if you'd rather store them somewhere else.
 
 See the [official PiKaraoke wiki](https://github.com/vicwomg/pikaraoke/wiki/) for the full list of command-line flags and what they do.
+
+## Changelog
+
+Every push to `master` publishes a [release](https://github.com/adl101010/pikaraoke/releases) listing what changed, so the Releases page doubles as the changelog for whatever's currently running as `:stable`.
 
 ## Everything else
 
