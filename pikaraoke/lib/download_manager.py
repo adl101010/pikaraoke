@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import subprocess
+import time
 import uuid
 from queue import Queue
 
@@ -19,6 +20,28 @@ from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
     get_youtube_id_from_url,
 )
+
+MAX_DOWNLOAD_RETRIES = 2
+RETRY_BACKOFF_SECONDS = 4
+
+# Failures worth trying again: YouTube hands out 403s and 429s when it doesn't
+# like the traffic pattern (a party queueing songs in bursts will provoke them),
+# and those usually clear on their own. A missing or private video won't, so
+# retrying it just delays telling the guest it isn't coming.
+_TRANSIENT_ERROR_PATTERNS = re.compile(
+    r"HTTP Error (403|429|5\d\d)"
+    r"|\b(?:read|connection) timed out"
+    r"|connection reset"
+    r"|temporary failure"
+    r"|unable to download (?:webpage|video data)"
+    r"|giving up after",
+    re.IGNORECASE,
+)
+
+
+def _is_transient_failure(output: str) -> bool:
+    """Whether a failed download looks worth retrying."""
+    return bool(_TRANSIENT_ERROR_PATTERNS.search(output or ""))
 
 
 class DownloadManager:
@@ -247,6 +270,27 @@ class DownloadManager:
         )
         logging.debug("yt-dlp command: " + " ".join(cmd))
 
+        rc, output = self._run_download(cmd, video_url)
+
+        for attempt in range(1, MAX_DOWNLOAD_RETRIES + 1):
+            if rc == 0 or not _is_transient_failure(output):
+                break
+            delay = RETRY_BACKOFF_SECONDS * attempt
+            logging.warning(
+                f"Download failed with a transient error, retrying in {delay}s "
+                f"(attempt {attempt} of {MAX_DOWNLOAD_RETRIES}): {displayed_title}"
+            )
+            if self.active_download:
+                self.active_download["status"] = "retrying"
+            time.sleep(delay)
+            rc, output = self._run_download(cmd, video_url)
+
+        return self._finish_download(
+            rc, output, video_url, enqueue, user, displayed_title, ip_address
+        )
+
+    def _run_download(self, cmd: list[str], video_url: str) -> tuple[int | None, str]:
+        """Run yt-dlp once, streaming progress into active_download."""
         # Use Popen to capture output in real-time
         process = subprocess.Popen(
             cmd,
@@ -264,7 +308,6 @@ class DownloadManager:
         progress_regex = re.compile(
             r"\[download\]\s+(\d+\.?\d*)%\s+of\s+.*?\s+at\s+([^\s]+)\s+ETA\s+([^\s]+)"
         )
-        video_id = get_youtube_id_from_url(video_url)
 
         while True:
             line = process.stdout.readline()
@@ -285,13 +328,24 @@ class DownloadManager:
                 # Log only non-progress lines to avoid spamming logs, or log everything at debug
                 # logging.debug(line.strip())
 
-        rc = process.poll()
-        output = "".join(output_buffer)
+        return process.poll(), "".join(output_buffer)
+
+    def _finish_download(
+        self,
+        rc: int | None,
+        output: str,
+        video_url: str,
+        enqueue: bool,
+        user: str,
+        displayed_title: str,
+        ip_address: str,
+    ) -> int:
+        """Record the outcome of a download that has run out of retries."""
+        from flask_babel import _
+
+        video_id = get_youtube_id_from_url(video_url)
 
         if rc != 0:
-            # Logic removed: We no longer retry synchronously as it blocks the queue.
-            # Failed downloads are now failed fast and logged.
-
             # MSG: Message shown after the download process is completed but the song is not found
             self._events.emit(
                 "notification", _("Error downloading song: ") + displayed_title, "danger"

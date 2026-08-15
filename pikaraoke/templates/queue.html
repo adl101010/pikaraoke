@@ -229,8 +229,8 @@
                       <div class="box mb-2 p-3 has-background-white-ter is-flex is-align-items-center" style="border-left: 4px solid #f14668;">
                           <span class="icon has-text-danger mr-2"><i class="icon-cancel"></i></span>
                           <div class="is-flex-grow-1" style="min-width: 0;">
-                              <p class="has-text-grey mb-0 is-truncated" title="${d.title || d.url}">${d.title || d.url}</p>
-                              <p class="help is-danger mb-0 is-truncated" title="${d.error}">${d.error}</p>
+                              <p class="has-text-grey mb-0 is-truncated" title="${escapeHtml(d.title || d.url)}">${escapeHtml(d.title || d.url)}</p>
+                              <p class="help is-danger mb-0 is-truncated" title="${escapeHtml(d.error)}">${escapeHtml(d.error)}</p>
                           </div>
                           <span class="tag is-danger is-light is-rounded ml-2">{{ _('Failed') | forceescape }}</span>
                           <button class="delete ml-2" onclick="dismissDownloadError('${d.id}')" title="{{ _('Dismiss') | forceescape }}"></button>

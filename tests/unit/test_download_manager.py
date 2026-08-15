@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from pikaraoke.lib.download_manager import DownloadManager
+from pikaraoke.lib.download_manager import (
+    MAX_DOWNLOAD_RETRIES,
+    DownloadManager,
+    _is_transient_failure,
+)
 from pikaraoke.lib.events import EventSystem
 from pikaraoke.lib.preference_manager import PreferenceManager
 
@@ -450,3 +454,98 @@ class TestDownloadManagerSpecialCharacters:
         )
 
         queue_manager.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
+
+
+class TestTransientFailureDetection:
+    """403/429/5xx from YouTube usually clear; a private video never will."""
+
+    @pytest.mark.parametrize(
+        "output",
+        [
+            "ERROR: unable to download video data: HTTP Error 403: Forbidden",
+            "ERROR: HTTP Error 429: Too Many Requests",
+            "ERROR: HTTP Error 503: Service Unavailable",
+            "ERROR: Unable to download webpage: The read operation timed out",
+            "ERROR: [youtube] Connection reset by peer",
+            "ERROR: Giving up after 3 fragment retries",
+        ],
+    )
+    def test_retryable_failures(self, output):
+        assert _is_transient_failure(output) is True
+
+    @pytest.mark.parametrize(
+        "output",
+        [
+            "ERROR: Video unavailable. This video is private",
+            "ERROR: Sign in to confirm your age",
+            "ERROR: HTTP Error 404: Not Found",
+            "ERROR: Unsupported URL: https://example.com/nope",
+            "",
+        ],
+    )
+    def test_permanent_failures_are_not_retried(self, output):
+        assert _is_transient_failure(output) is False
+
+    def test_handles_none_output(self):
+        assert _is_transient_failure(None) is False
+
+
+class TestDownloadRetry:
+    @pytest.fixture
+    def manager(self, events, preferences, song_manager, queue_manager):
+        return DownloadManager(
+            events=events,
+            preferences=preferences,
+            song_manager=song_manager,
+            queue_manager=queue_manager,
+            download_path="/songs",
+        )
+
+    @patch("pikaraoke.lib.download_manager.time.sleep")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_transient_failure_is_retried_then_succeeds(self, mock_build_cmd, mock_sleep, manager):
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        manager._run_download = MagicMock(
+            side_effect=[(1, "HTTP Error 403: Forbidden"), (0, "done")]
+        )
+        manager._finish_download = MagicMock(return_value=0)
+
+        manager._execute_download("https://youtu.be/abc", False, "Alex", "Song")
+
+        assert manager._run_download.call_count == 2
+        # The successful attempt's result is what gets recorded.
+        assert manager._finish_download.call_args.args[0] == 0
+
+    @patch("pikaraoke.lib.download_manager.time.sleep")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_retries_are_bounded(self, mock_build_cmd, mock_sleep, manager):
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        manager._run_download = MagicMock(return_value=(1, "HTTP Error 403: Forbidden"))
+        manager._finish_download = MagicMock(return_value=1)
+
+        manager._execute_download("https://youtu.be/abc", False, "Alex", "Song")
+
+        assert manager._run_download.call_count == 1 + MAX_DOWNLOAD_RETRIES
+
+    @patch("pikaraoke.lib.download_manager.time.sleep")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_permanent_failure_is_not_retried(self, mock_build_cmd, mock_sleep, manager):
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        manager._run_download = MagicMock(return_value=(1, "ERROR: This video is private"))
+        manager._finish_download = MagicMock(return_value=1)
+
+        manager._execute_download("https://youtu.be/abc", False, "Alex", "Song")
+
+        manager._run_download.assert_called_once()
+
+    @patch("pikaraoke.lib.download_manager.time.sleep")
+    @patch("pikaraoke.lib.download_manager.build_ytdl_download_command")
+    def test_success_first_time_never_sleeps(self, mock_build_cmd, mock_sleep, manager):
+        mock_build_cmd.return_value = ["yt-dlp", "url"]
+        manager._run_download = MagicMock(return_value=(0, "ok"))
+        manager._finish_download = MagicMock(return_value=0)
+
+        manager._execute_download("https://youtu.be/abc", False, "Alex", "Song")
+
+        manager._run_download.assert_called_once()
+        mock_sleep.assert_not_called()
