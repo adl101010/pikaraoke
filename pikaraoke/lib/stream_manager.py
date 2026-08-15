@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
-from queue import Queue
+from queue import Empty, Queue
 from threading import Thread
 from typing import Any
 
@@ -340,10 +340,18 @@ class StreamManager:
 
     def log_ffmpeg_output(self) -> None:
         """Log any pending FFmpeg output from the queue."""
-        if self.ffmpeg_log is None:
+        # Bind once: starting the next song rebinds self.ffmpeg_log to a fresh
+        # Queue, so re-reading the attribute could size up one queue and drain
+        # another. Empty is still caught because a skip arriving from a web
+        # request can drain this one between the check and the get.
+        log = self.ffmpeg_log
+        if log is None:
             return
-        while self.ffmpeg_log.qsize() > 0:
-            output = self.ffmpeg_log.get_nowait()
+        while log.qsize() > 0:
+            try:
+                output = log.get_nowait()
+            except Empty:
+                return
             logging.debug("[FFMPEG] " + output.decode("utf-8", "ignore").strip())
 
     def kill_ffmpeg(self) -> None:

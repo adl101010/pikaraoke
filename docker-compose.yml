@@ -9,4 +9,6 @@ services:
     command: -u http://<YOUR_LAN_IP>:5555 -d /app/pikaraoke-songs
     environment:
       - TZ=UTC # Set to your local timezone, e.g. America/New_York
+    # Bring the container back by itself if it ever exits mid-party.
+    restart: unless-stopped
 networks: {}

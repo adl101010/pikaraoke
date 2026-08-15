@@ -631,3 +631,19 @@ class Karaoke:
             except KeyboardInterrupt:
                 logging.warning("Keyboard interrupt: Exiting pikaraoke...")
                 self.running = False
+            except Exception:
+                # run() drives the main thread -- the web server only runs in
+                # background greenlets -- so anything escaping this loop exits
+                # the interpreter and takes the entire container down, mid-song
+                # and mid-party. One bad song must never do that: log the full
+                # traceback, tear down whatever was playing, and keep serving.
+                logging.exception("Unhandled error in the run loop; recovering")
+                try:
+                    self.playback_controller.end_song(reason="internal error")
+                except Exception:
+                    logging.exception("Could not clean up playback after the error")
+                    # Force the flags back regardless, or the loop believes a
+                    # song is still playing and never starts the next one.
+                    self.playback_controller.is_playing = False
+                    self.playback_controller.now_playing = None
+                self.handle_run_loop()
