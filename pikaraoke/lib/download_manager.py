@@ -22,7 +22,10 @@ from pikaraoke.lib.youtube_dl import (
 )
 
 MAX_DOWNLOAD_RETRIES = 2
-RETRY_BACKOFF_SECONDS = 4
+# YouTube's rate limiter is the failure this exists for, and it doesn't clear in
+# a couple of seconds. Waits 15s then 30s, in the background worker, so a guest
+# waits at most ~45s longer before being told the song isn't coming.
+RETRY_BACKOFF_SECONDS = 15
 
 # Failures worth trying again: YouTube hands out 403s and 429s when it doesn't
 # like the traffic pattern (a party queueing songs in bursts will provoke them),
