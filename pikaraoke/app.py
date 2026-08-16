@@ -40,6 +40,7 @@ from pikaraoke.lib.get_platform import (
 )
 from pikaraoke.lib.keep_awake import KeepAwake
 from pikaraoke.lib.local_time import format_local_datetime
+from pikaraoke.lib.network import socket_origins_for
 from pikaraoke.lib.song_manager import SongManager
 from pikaraoke.lib.url_prefix import BasePathMiddleware
 from pikaraoke.lib.youtube_dl import upgrade_youtubedl
@@ -67,7 +68,14 @@ from gevent.pywsgi import WSGIServer
 
 args = parse_pikaraoke_args()
 socketio_path = f"{args.base_path}/socket.io" if args.base_path else "/socket.io"
-socketio = SocketIO(async_mode="gevent", cors_allowed_origins=args.url, path=socketio_path)
+
+
+socket_origins = socket_origins_for(args.url, args.port)
+socketio = SocketIO(
+    async_mode="gevent",
+    cors_allowed_origins=socket_origins,
+    path=socketio_path,
+)
 babel = Babel()
 
 
@@ -339,6 +347,10 @@ def main() -> None:
     # Expose some functions to jinja templates
     app.jinja_env.globals.update(filename_from_path=k.song_manager.display_name_from_path)
     app.jinja_env.globals.update(url_escape=quote)
+
+    # Logged because a mismatch here is otherwise only visible as
+    # "<origin> is not an accepted origin" once a browser fails to connect.
+    logging.info(f"Accepting socket connections from: {', '.join(socket_origins)}")
 
     if not args.skip_youtubedl_upgrade:
         # Read from preferences, not args: the channel persists in config.ini on

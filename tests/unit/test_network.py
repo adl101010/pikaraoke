@@ -12,6 +12,7 @@ from pikaraoke.lib.network import (
     _get_ip_via_udp_socket,
     _get_ip_windows,
     get_ip,
+    socket_origins_for,
 )
 
 
@@ -340,3 +341,35 @@ class TestGetIpViaPsutil:
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
             result = _get_ip_via_psutil()
             assert result == "192.168.1.100"
+
+
+class TestSocketOrigins:
+    """Only allowing --url refused LAN access, which is the normal fallback
+    when a tunnel is down -- and killed the socket the splash screen needs."""
+
+    def test_public_url_is_allowed(self):
+        assert "https://alyssapew.us" in socket_origins_for("https://alyssapew.us", 5555)
+
+    def test_localhost_is_allowed(self):
+        assert "http://localhost:5555" in socket_origins_for("https://alyssapew.us", 5555)
+
+    def test_loopback_is_allowed(self):
+        assert "http://127.0.0.1:5555" in socket_origins_for("https://alyssapew.us", 5555)
+
+    def test_the_detected_lan_address_is_allowed(self):
+        with patch("pikaraoke.lib.network.get_ip", return_value="192.168.100.13"):
+            assert "http://192.168.100.13:8844" in socket_origins_for("https://x.us", 8844)
+
+    def test_port_is_honoured(self):
+        assert "http://localhost:8844" in socket_origins_for("https://alyssapew.us", 8844)
+
+    def test_works_without_a_configured_url(self):
+        origins = socket_origins_for(None, 5555)
+        assert "http://localhost:5555" in origins
+        assert None not in origins
+
+    def test_lan_detection_failing_does_not_break_startup(self):
+        with patch("pikaraoke.lib.network.get_ip", side_effect=OSError("no interfaces")):
+            origins = socket_origins_for("https://alyssapew.us", 5555)
+        assert "https://alyssapew.us" in origins
+        assert "http://localhost:5555" in origins

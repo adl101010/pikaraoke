@@ -4,6 +4,8 @@ import logging
 import socket
 import subprocess
 
+from pikaraoke.lib.get_platform import get_platform
+
 
 def get_ip(platform: str) -> str:
     """Get the local IP address of this machine.
@@ -188,3 +190,25 @@ def _get_ip_via_udp_socket(target: str) -> str:
     finally:
         s.close()
     return ip
+
+
+def socket_origins_for(url: str | None, port: int | str) -> list[str]:
+    """Origins allowed to open a socket.
+
+    --url describes how guests reach the server, but it isn't the only valid
+    way in: reaching the machine directly on the LAN is a normal fallback when
+    a tunnel or reverse proxy is down. Allowing only --url meant those visits
+    were refused with "<origin> is not an accepted origin", which kills the
+    socket the splash screen needs to start songs -- and drops the page onto
+    long-polling, which is far heavier on the server.
+    """
+    origins = {url} if url else set()
+    hosts = ["localhost", "127.0.0.1"]
+    try:
+        hosts.append(get_ip(get_platform()))
+    except Exception as e:  # detection is best-effort; never block startup
+        logging.warning(f"Could not determine LAN IP for socket origins: {e}")
+    for host in hosts:
+        origins.add(f"http://{host}:{port}")
+        origins.add(f"https://{host}:{port}")
+    return sorted(origins)
