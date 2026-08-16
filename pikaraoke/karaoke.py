@@ -176,6 +176,13 @@ class Karaoke:
             format="[%(asctime)s] %(levelname)s: %(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
             level=int(log_level),
+            # A stray logging call anywhere before this point (e.g. psutil
+            # interface detection logging on startup) auto-configures the
+            # root logger at the default WARNING level via Python's implicit
+            # basicConfig-on-first-log behavior, which silently makes this
+            # call a no-op -- every INFO log for the rest of the run,
+            # including the one CI's smoke tests wait for, then vanishes.
+            force=True,
         )
 
         # Initialize event system and preferences (foundation for all components)
