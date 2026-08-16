@@ -1,8 +1,17 @@
 """Unit tests for session_stats (session-history computation)."""
 
 from datetime import datetime
+from unittest.mock import patch
 
-from pikaraoke.lib.session_stats import compute_all_sessions, is_session_live
+import pytest
+
+from pikaraoke.lib.karaoke_database import KaraokeDatabase
+from pikaraoke.lib.session_stats import (
+    clear_sessions_cache,
+    compute_all_sessions,
+    get_sessions,
+    is_session_live,
+)
 
 
 def _event(file_path: str, user: str, played_at: str) -> dict:
@@ -136,3 +145,64 @@ class TestIsSessionLive:
         )[0]
         now = datetime(2026, 1, 1, 22, 0, 0)
         assert is_session_live(session, now=now, gap_hours=1.0) is False
+
+
+class TestSessionsCache:
+    """Recap is loaded by every guest and polled by the splash, so the derivation
+    is memoised. It must still notice new plays and renamed sessions."""
+
+    @pytest.fixture(autouse=True)
+    def _clear(self):
+        clear_sessions_cache()
+        yield
+        clear_sessions_cache()
+
+    @pytest.fixture
+    def db(self, tmp_path):
+        d = KaraokeDatabase(str(tmp_path / "cache.db"))
+        yield d
+        d.close()
+
+    def test_returns_sessions(self, db):
+        db.record_play("/songs/a.mp4", "Alex")
+        sessions = get_sessions(db)
+        assert len(sessions) == 1
+        assert sessions[0].play_count == 1
+
+    def test_second_call_does_not_reread_history(self, db):
+        db.record_play("/songs/a.mp4", "Alex")
+        get_sessions(db)
+
+        with patch.object(db, "get_all_play_events", wraps=db.get_all_play_events) as spy:
+            get_sessions(db)
+            spy.assert_not_called()
+
+    def test_a_new_play_invalidates_the_cache(self, db):
+        db.record_play("/songs/a.mp4", "Alex")
+        assert get_sessions(db)[0].play_count == 1
+
+        db.record_play("/songs/b.mp4", "Sam")
+
+        assert get_sessions(db)[0].play_count == 2
+
+    def test_renaming_a_session_invalidates_the_cache(self, db):
+        db.record_play("/songs/a.mp4", "Alex")
+        started = get_sessions(db)[0].started_at
+        assert get_sessions(db)[0].name is None
+
+        db.set_session_name(started, "Birthday")
+
+        assert get_sessions(db)[0].name == "Birthday"
+
+    def test_marker_is_stable_when_nothing_changes(self, db):
+        db.record_play("/songs/a.mp4", "Alex")
+        assert db.get_play_events_marker() == db.get_play_events_marker()
+
+    def test_marker_advances_on_a_new_play(self, db):
+        db.record_play("/songs/a.mp4", "Alex")
+        before = db.get_play_events_marker()
+        db.record_play("/songs/b.mp4", "Sam")
+        assert db.get_play_events_marker() > before
+
+    def test_marker_on_empty_history(self, db):
+        assert db.get_play_events_marker() == 0

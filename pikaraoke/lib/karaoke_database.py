@@ -305,6 +305,15 @@ class KaraokeDatabase:
             ).fetchall()
             return [dict(row) for row in rows]
 
+    def get_play_events_marker(self) -> int:
+        """Cheap fingerprint of the play history, for cache invalidation.
+
+        MAX(id) is an O(1) index lookup, unlike reading the whole table. It's
+        sufficient because play_events is append-only and never pruned.
+        """
+        with self._lock:
+            return self._conn.execute("SELECT COALESCE(MAX(id), 0) FROM play_events").fetchone()[0]
+
     def get_session_names(self) -> dict[str, str]:
         """Return a map of session started_at -> admin-given name."""
         with self._lock:

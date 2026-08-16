@@ -6,7 +6,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_karaoke_instance, get_site_name, is_admin
-from pikaraoke.lib.session_stats import compute_all_sessions, is_session_live
+from pikaraoke.lib.session_stats import get_sessions, is_session_live
 
 _ = flask_babel.gettext
 
@@ -23,10 +23,7 @@ class SetSessionNameQuery(Schema):
 
 
 def _get_all_sessions():
-    k = get_karaoke_instance()
-    events = k.db.get_all_play_events()
-    names = k.db.get_session_names()
-    return compute_all_sessions(events, names=names)
+    return get_sessions(get_karaoke_instance().db)
 
 
 def _song_list(session):

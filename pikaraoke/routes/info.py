@@ -16,7 +16,7 @@ from pikaraoke.lib.current_app import (
     is_admin,
 )
 from pikaraoke.lib.get_platform import get_platform, is_linux
-from pikaraoke.lib.session_stats import compute_all_sessions, is_session_live
+from pikaraoke.lib.session_stats import get_sessions, is_session_live
 
 _ = flask_babel.gettext
 
@@ -45,7 +45,7 @@ def info():
 
     session_history = []
     if is_admin():
-        sessions = compute_all_sessions(k.db.get_all_play_events(), names=k.db.get_session_names())
+        sessions = get_sessions(k.db)
         session_history = [
             {
                 "started_at": s.started_at,

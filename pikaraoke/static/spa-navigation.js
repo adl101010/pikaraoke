@@ -11,7 +11,12 @@
         contentSelector: '.box',
         linkSelector: 'a[href]', // Intercept all links, not just navbar
         notificationSelector: '#notification-alt',
-        scrollBehavior: 'smooth'
+        scrollBehavior: 'smooth',
+        // isNavigating blocks every other link while a page is loading, and the
+        // fetch below has no deadline of its own -- a request that never settles
+        // (dropped connection, stalled proxy) would leave the whole navbar dead
+        // until a manual reload. Abort instead and fall back to a real page load.
+        navTimeoutMs: 15000
     };
 
     // State management
@@ -297,6 +302,9 @@
         $('.navbar-burger').removeClass('is-active');
         $('.navbar-menu').removeClass('is-active');
 
+        const controller = new AbortController();
+        const navTimeout = setTimeout(() => controller.abort(), config.navTimeoutMs);
+
         try {
             // Fetch the new page content with cache-busting to ensure fresh data
             const cacheBuster = Date.now();
@@ -305,6 +313,7 @@
 
             const response = await fetch(fetchUrl, {
                 method: 'GET',
+                signal: controller.signal,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Accept': 'text/html',
@@ -375,10 +384,15 @@
             }
 
         } catch (error) {
-            console.error('Navigation error:', error);
+            if (error.name === 'AbortError') {
+                console.error(`Navigation to ${url} timed out after ${config.navTimeoutMs}ms`);
+            } else {
+                console.error('Navigation error:', error);
+            }
             // Fallback to normal navigation on error
             window.location.href = url;
         } finally {
+            clearTimeout(navTimeout);
             isNavigating = false;
         }
     }

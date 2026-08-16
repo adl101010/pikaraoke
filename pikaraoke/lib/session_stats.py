@@ -93,3 +93,29 @@ def is_session_live(
     now = now or datetime.now(timezone.utc).replace(tzinfo=None)
     ended = datetime.fromisoformat(session.ended_at)
     return now - ended <= timedelta(hours=gap_hours)
+
+
+# Deriving sessions means reading the entire play history and walking it. That
+# happens on every recap view and on every splash-screen poll, so the result is
+# memoised and only recomputed when a song is played or a session is renamed.
+_cache: dict | None = None
+
+
+def get_sessions(db) -> list[SessionRecap]:
+    """Sessions for the whole play history, recomputed only when it changes."""
+    global _cache
+
+    marker = db.get_play_events_marker()
+    names = db.get_session_names()
+    if _cache is not None and _cache["marker"] == marker and _cache["names"] == names:
+        return _cache["sessions"]
+
+    sessions = compute_all_sessions(db.get_all_play_events(), names=names)
+    _cache = {"marker": marker, "names": names, "sessions": sessions}
+    return sessions
+
+
+def clear_sessions_cache() -> None:
+    """Drop the memoised sessions. Only needed by tests."""
+    global _cache
+    _cache = None
