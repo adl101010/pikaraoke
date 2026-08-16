@@ -719,7 +719,7 @@
 				<div class="content">
 					<p class="is-size-7 has-text-grey">
 						{# MSG: Explanation of the Splash screens section on the admin page. #}
-						{% trans %}Screens currently showing the player. One leads: it sets the playback position the others follow, and it's the only one that can end a song. Choose the TV you're listening to, and turn the sound down on the rest.{% endtrans %}
+						{% trans %}Screens currently showing the player. One leads: it sets the playback position the others follow, and it's the only one that can end a song. Pinning is worth doing even with a single TV, because a pinned screen takes the lead straight back after a dropped connection instead of waiting to be noticed. With several screens, pin the TV you're listening to and turn the sound down on the rest.{% endtrans %}
 					</p>
 					{% if splash_screens %}
 					<div style="overflow-x: auto;">
@@ -748,6 +748,13 @@
 										{% if screen.device_id and screen.device_id == master_splash_device %}
 										{# MSG: Note that this screen was chosen by an admin, rather than elected. #}
 										<span class="is-size-7 has-text-grey">&nbsp;{% trans %}(pinned){% endtrans %}</span>
+										{% elif screen.device_id %}
+										{# Pinning the screen that already leads is the point for a single TV:
+										   it's what makes the role survive a reconnect. #}
+										<a class="button is-small is-rounded ml-2" href="{{ url_for('admin.set_master_splash', device_id=screen.device_id) }}">
+											{# MSG: Button that keeps this screen leading playback across reconnects. #}
+											{% trans %}Pin{% endtrans %}
+										</a>
 										{% endif %}
 										{% elif screen.device_id %}
 										<a class="button is-small is-rounded" href="{{ url_for('admin.set_master_splash', device_id=screen.device_id) }}">
