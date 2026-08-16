@@ -387,6 +387,7 @@ const handleNowPlayingUpdate = (np) => {
     if (!usingHlsJs) {
       video.load();
     }
+    let playbackAttempted = false;
     if (volume !== np.volume) {
       volume = np.volume;
       video.volume = volume;
@@ -402,23 +403,43 @@ const handleNowPlayingUpdate = (np) => {
 
     $("#video-container").show();
 
-    // Seek only once playback has actually begun. Checking readiness straight
-    // after calling play() always failed -- the promise hadn't resolved yet --
-    // so a screen opened mid-song silently started from the beginning and only
-    // caught up when the master's next position broadcast arrived.
-    video.play().then(() => {
-      if (np.now_playing_position && Math.abs(video.currentTime - np.now_playing_position) > 2) {
-        console.log("Syncing to server position:", np.now_playing_position);
-        video.currentTime = np.now_playing_position;
-      }
-    }).catch(err => {
-      console.error('Play failed:', err);
-      // Retry once if it was an autoplay block
-      setTimeout(() => video.play(), 1000);
-    });
+    const beginPlayback = () => {
+      playbackAttempted = true;
+      // Seek only once playback has actually begun. Checking readiness straight
+      // after calling play() always failed -- the promise hadn't resolved yet --
+      // so a screen opened mid-song silently started from the beginning and only
+      // caught up when the master's next position broadcast arrived.
+      video.play().then(() => {
+        if (np.now_playing_position && Math.abs(video.currentTime - np.now_playing_position) > 2) {
+          console.log("Syncing to server position:", np.now_playing_position);
+          video.currentTime = np.now_playing_position;
+        }
+      }).catch(err => {
+        console.error('Play failed:', err);
+        // Retry once if it was an autoplay block
+        setTimeout(() => video.play(), 1000);
+      });
+    };
+
+    if (usingHlsJs) {
+      // Wait for the playlist before playing. Skipping restarts the transcode,
+      // so for a moment there's no playlist to fetch -- calling play() then
+      // leaves the element stalled rather than playing, and the master's
+      // "failed to start" timeout would kill the song ten seconds later. The
+      // song after always worked because the transcode had caught up by then.
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, beginPlayback);
+    } else {
+      beginPlayback();
+    }
 
     setTimeout(() => {
-      if (!isMediaPlaying(video) && !video.paused) {
+      // Two ways a song never gets going: playback started but stalled, or the
+      // playlist never arrived so playback was never attempted at all. The
+      // second case needs checking explicitly now that hls.js waits for the
+      // manifest -- until then the element is simply paused, which the stall
+      // check reads as fine.
+      const stalled = !isMediaPlaying(video) && !video.paused;
+      if (stalled || !playbackAttempted) {
         endSong("failed to start");
       }
     }, playbackStartTimeout);
