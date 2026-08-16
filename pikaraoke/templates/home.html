@@ -307,6 +307,20 @@
 		window.homeNowPlayingHandler = loadNowPlaying;
 		window.socket.on("now_playing", loadNowPlaying);
 
+		// Another admin scrubbed: follow them, so two phones don't disagree
+		// about where the song is. Ignored mid-drag -- renderScrubber() leaves
+		// the thumb alone then, and snatching it back would fight the finger.
+		function handleRemoteSeek(position) {
+			if (isScrubbing) return;
+			scrubPosition = position;
+			renderScrubber();
+		}
+		if (window.homeSeekHandler) {
+			window.socket.off("seek", window.homeSeekHandler);
+		}
+		window.homeSeekHandler = handleRemoteSeek;
+		window.socket.on("seek", handleRemoteSeek);
+
 		//active singers sidebar
 		loadActiveSingers();
 		if (window.homeQueueUpdateHandler) {

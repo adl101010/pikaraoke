@@ -26,14 +26,19 @@ def broadcast_splash_role(sid: str, role: str) -> None:
 
 
 def broadcast_seek(position: float) -> None:
-    """Ask every splash screen to jump to a position, in seconds.
+    """Announce a jump to a position, in seconds.
 
-    Sent to all of them rather than only the master so they move together.
-    Waiting for the followers' drift correction would leave them up to a
-    second behind, which is very visible on a wall of TVs.
+    Sent to every splash screen rather than only the master so they move
+    together. Waiting for the followers' drift correction would leave them up
+    to a second behind, which is very visible on a wall of TVs.
+
+    Goes to the controller pages too: the server only reports a position when
+    something changes, so another admin's scrubber would otherwise sit at the
+    old time until the song ended. Seeks are rare and admin-driven, so this
+    costs far less traffic than pushing positions continuously would.
     """
     if _socketio is not None:
-        _socketio.emit("seek", position, room=SPLASH_ROOM)
+        _socketio.emit("seek", position)
 
 
 def setup_socket_events(socketio):
