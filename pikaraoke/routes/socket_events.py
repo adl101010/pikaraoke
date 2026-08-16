@@ -3,12 +3,16 @@
 import logging
 
 from flask import request
+from flask_socketio import join_room
 
 from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.splash_registry import SplashRegistry
 
-# Track connected splash screen clients and the elected master
-splash_connections = set()
-master_splash_id = None
+# Splash screens share a room so playback position updates don't fan out to
+# every guest's phone, which never listen for them.
+SPLASH_ROOM = "splash"
+
+splash_registry = SplashRegistry()
 
 
 def setup_socket_events(socketio):
@@ -20,11 +24,19 @@ def setup_socket_events(socketio):
 
     @socketio.on("end_song")
     def end_song(reason: str) -> None:
-        """Handle end_song WebSocket event from client.
+        """Handle end_song WebSocket event from the master splash screen.
+
+        Gated server-side, not just in the client: ending a song affects
+        everyone in the room, so a second screen (or a stale tab from an
+        earlier session) must not be able to cut someone's song short.
 
         Args:
             reason: Reason for ending the song (e.g., 'complete', 'error').
         """
+        sid = request.sid
+        if not splash_registry.is_master(sid):
+            logging.debug(f"Ignoring end_song from non-master splash: {sid}")
+            return
         k = get_karaoke_instance()
         k.playback_controller.end_song(reason)
 
@@ -43,18 +55,13 @@ def setup_socket_events(socketio):
     @socketio.on("register_splash")
     def register_splash() -> None:
         """Handle splash screen registration and assign master/slave roles."""
-        global master_splash_id
         sid = request.sid
-        splash_connections.add(sid)
-        logging.info(f"Splash screen registered: {sid}")
-
-        if master_splash_id is None:
-            master_splash_id = sid
-            socketio.emit("splash_role", "master", room=sid)
-            logging.info(f"Master splash screens assigned: {sid}")
-        else:
-            socketio.emit("splash_role", "slave", room=sid)
-            logging.info(f"Slave splash screens assigned: {sid}")
+        # Joining a room keeps position updates off every guest's phone, none
+        # of which listen for them.
+        join_room(SPLASH_ROOM)
+        role = splash_registry.register(sid)
+        logging.info(f"Splash screen registered: {sid} ({role})")
+        socketio.emit("splash_role", role, room=sid)
 
     @socketio.on("playback_position")
     def handle_playback_position(position: float) -> None:
@@ -63,31 +70,27 @@ def setup_socket_events(socketio):
         Args:
             position: Current playback position in seconds.
         """
-        global master_splash_id
         sid = request.sid
-        if sid == master_splash_id:
-            k = get_karaoke_instance()
-            k.playback_controller.now_playing_position = position
-            # Broadcast position to all other splash screens (slaves)
-            socketio.emit("playback_position", position, include_self=False)
+        if not splash_registry.is_master(sid):
+            return
+        # Doubles as the master's liveness signal while a song is playing.
+        splash_registry.touch(sid)
+        k = get_karaoke_instance()
+        k.playback_controller.now_playing_position = position
+        # Slaves only: guests' phones don't listen for this.
+        socketio.emit("playback_position", position, room=SPLASH_ROOM, include_self=False)
 
     @socketio.on("disconnect")
     def handle_disconnect() -> None:
         """Handle Socket.IO client disconnection and manage splash role handover."""
-        global master_splash_id
         sid = request.sid
-        if sid in splash_connections:
-            splash_connections.remove(sid)
-            logging.info(f"Splash screen disconnected: {sid}")
-            if sid == master_splash_id:
-                master_splash_id = None
-                logging.info("Master splash disconnected, electing new master")
-                if splash_connections:
-                    # Elect new master from remaining connections
-                    new_master = next(iter(splash_connections))
-                    master_splash_id = new_master
-                    socketio.emit("splash_role", "master", room=new_master)
-                    logging.info(f"New master splash elected: {new_master}")
+        if sid not in splash_registry.connections:
+            return
+        logging.info(f"Splash screen disconnected: {sid}")
+        new_master = splash_registry.remove(sid)
+        if new_master:
+            socketio.emit("splash_role", "master", room=new_master)
+            logging.info(f"New master splash elected: {new_master}")
 
     @socketio.on("request_mic_devices")
     def handle_request_mic_devices() -> None:

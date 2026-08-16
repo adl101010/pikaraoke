@@ -354,18 +354,20 @@ const handleNowPlayingUpdate = (np) => {
 
     $("#video-container").show();
 
-    video.play().catch(err => {
+    // Seek only once playback has actually begun. Checking readiness straight
+    // after calling play() always failed -- the promise hadn't resolved yet --
+    // so a screen opened mid-song silently started from the beginning and only
+    // caught up when the master's next position broadcast arrived.
+    video.play().then(() => {
+      if (np.now_playing_position && Math.abs(video.currentTime - np.now_playing_position) > 2) {
+        console.log("Syncing to server position:", np.now_playing_position);
+        video.currentTime = np.now_playing_position;
+      }
+    }).catch(err => {
       console.error('Play failed:', err);
       // Retry once if it was an autoplay block
       setTimeout(() => video.play(), 1000);
     });
-
-    if (np.now_playing_position && isMediaPlaying(video)) {
-      if (Math.abs(video.currentTime - np.now_playing_position) > 2) {
-        console.log("Syncing to server position:", np.now_playing_position);
-        video.currentTime = np.now_playing_position;
-      }
-    }
 
     setTimeout(() => {
       if (!isMediaPlaying(video) && !video.paused) {
@@ -439,9 +441,11 @@ const setupVideoPlayer = () => {
   const video = getVideoPlayer();
   video.addEventListener("play", () => {
     $("#video-container").show();
-    if (isMaster) {
-      setTimeout(() => { socket.emit("start_song") }, 1200);
-    }
+    // Deliberately not gated on isMaster. start_song is idempotent, and if any
+    // screen is playing then the song is playing -- gating it meant a stale
+    // master could leave nobody able to report it, and every song would time
+    // out and skip. Ending a song stays master-only.
+    setTimeout(() => { socket.emit("start_song") }, 1200);
   });
 
   // Master reports playback position to server
