@@ -53,6 +53,9 @@ class PreferenceManager:
         # "stable" or "nightly". Stable trails YouTube's changes by weeks, so
         # nightly is the escape hatch when downloads start failing.
         "ytdl_update_channel": "stable",
+        # Device id of the splash screen an admin chose to drive playback.
+        # Blank means "elect whoever registers first", the default behaviour.
+        "master_splash_device": "",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:

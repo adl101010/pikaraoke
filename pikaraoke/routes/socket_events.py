@@ -5,7 +5,7 @@ import logging
 from flask import request
 from flask_socketio import join_room
 
-from pikaraoke.lib.current_app import get_karaoke_instance
+from pikaraoke.lib.current_app import get_client_ip, get_device_id, get_karaoke_instance
 from pikaraoke.lib.splash_registry import SplashRegistry
 
 # Splash screens share a room so playback position updates don't fan out to
@@ -14,6 +14,16 @@ SPLASH_ROOM = "splash"
 
 splash_registry = SplashRegistry()
 
+# Held so HTTP routes (the admin page changing the master) can push role
+# changes to screens without importing the app and creating a cycle.
+_socketio = None
+
+
+def broadcast_splash_role(sid: str, role: str) -> None:
+    """Tell one splash screen which role it now holds."""
+    if _socketio is not None:
+        _socketio.emit("splash_role", role, room=sid)
+
 
 def setup_socket_events(socketio):
     """Register Socket.IO event handlers.
@@ -21,6 +31,8 @@ def setup_socket_events(socketio):
     Args:
         socketio: The SocketIO instance.
     """
+    global _socketio
+    _socketio = socketio
 
     @socketio.on("end_song")
     def end_song(reason: str) -> None:
@@ -42,9 +54,23 @@ def setup_socket_events(socketio):
 
     @socketio.on("start_song")
     def start_song() -> None:
-        """Handle start_song WebSocket event when playback begins."""
+        """Handle start_song WebSocket event when playback begins.
+
+        Accepted from any splash screen, not just the master: it's idempotent,
+        and gating it meant a stale master left nobody able to report that a
+        song had begun, so every song timed out and was skipped.
+        """
         k = get_karaoke_instance()
         k.playback_controller.start_song()
+
+        # A screen reporting playback is a chance to notice the master has gone
+        # quiet. Only ever hands over when another screen can take the role --
+        # demoting a lone screen during a blip would just leave nobody able to
+        # end the song.
+        promoted = splash_registry.demote_stale_master()
+        if promoted:
+            logging.info(f"Master splash went quiet; promoting {promoted}")
+            socketio.emit("splash_role", "master", room=promoted)
 
     @socketio.on("clear_notification")
     def clear_notification() -> None:
@@ -59,7 +85,18 @@ def setup_socket_events(socketio):
         # Joining a room keeps position updates off every guest's phone, none
         # of which listen for them.
         join_room(SPLASH_ROOM)
-        role = splash_registry.register(sid)
+
+        # Pull the admin's pinned device from preferences on each registration,
+        # so a choice made mid-party takes effect on the next reconnect without
+        # needing to be pushed into the registry separately.
+        k = get_karaoke_instance()
+        splash_registry.pin_device(k.preferences.get_or_default("master_splash_device"))
+
+        role = splash_registry.register(
+            sid,
+            device_id=get_device_id(),
+            ip_address=get_client_ip(),
+        )
         logging.info(f"Splash screen registered: {sid} ({role})")
         socketio.emit("splash_role", role, room=sid)
 

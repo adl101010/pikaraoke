@@ -18,6 +18,7 @@ from pikaraoke.lib.current_app import (
 from pikaraoke.lib.get_platform import get_platform, is_linux
 from pikaraoke.lib.session_stats import get_sessions, is_session_live
 from pikaraoke.lib.youtube_dl import get_youtubedl_build
+from pikaraoke.routes.socket_events import splash_registry
 
 _ = flask_babel.gettext
 
@@ -44,6 +45,8 @@ def info():
     blocked_ips = k.ip_blocklist.get_all() if is_admin() else []
     top_songs = k.db.get_top_songs(10) if is_admin() else []
     device_stats = k.db.get_device_stats() if is_admin() else []
+    splash_screens = splash_registry.screens() if is_admin() else []
+    master_splash_sid = splash_registry.master
 
     session_history = []
     if is_admin():
@@ -118,6 +121,9 @@ def info():
         blocked_ips=blocked_ips,
         top_songs=top_songs,
         device_stats=device_stats,
+        splash_screens=splash_screens,
+        master_splash_sid=master_splash_sid,
+        master_splash_device=k.preferences.get_or_default("master_splash_device"),
         ytdl_update_channel=k.preferences.get_or_default("ytdl_update_channel"),
         session_history=session_history,
     )

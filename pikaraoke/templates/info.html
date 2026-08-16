@@ -713,6 +713,71 @@
 			<hr class="my-0">
 
 			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
+				<h3 class="m-0">{# MSG: Title text for the Splash screens section of preferences #}{% trans %}Splash screens{% endtrans %}</h3>
+			</header>
+			<div class="card-content collapsible-content">
+				<div class="content">
+					<p class="is-size-7 has-text-grey">
+						{# MSG: Explanation of the Splash screens section on the admin page. #}
+						{% trans %}Screens currently showing the player. One leads: it sets the playback position the others follow, and it's the only one that can end a song. Choose the TV you're listening to, and turn the sound down on the rest.{% endtrans %}
+					</p>
+					{% if splash_screens %}
+					<div style="overflow-x: auto;">
+						<table class="table is-striped is-fullwidth is-narrow">
+							<thead>
+								<tr>
+									{# MSG: Splash screens table column header for the screen's device identifier. #}
+									<th>{% trans %}Screen{% endtrans %}</th>
+									{# MSG: Splash screens table column header for the screen's IP address. #}
+									<th>{% trans %}IP Address{% endtrans %}</th>
+									{# MSG: Splash screens table column header for which screen leads playback. #}
+									<th>{% trans %}Leading{% endtrans %}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{% for screen in splash_screens %}
+								<tr>
+									<td class="is-size-7" title="{{ screen.device_id }}">
+										{{ screen.device_id[:6] ~ "…" if screen.device_id else screen.sid[:6] ~ "…" }}
+									</td>
+									<td class="is-size-7">{{ screen.ip_address or "--" }}</td>
+									<td>
+										{% if screen.sid == master_splash_sid %}
+										{# MSG: Tag marking the screen that currently drives playback. #}
+										<span class="tag is-success">{% trans %}Master{% endtrans %}</span>
+										{% if screen.device_id and screen.device_id == master_splash_device %}
+										{# MSG: Note that this screen was chosen by an admin, rather than elected. #}
+										<span class="is-size-7 has-text-grey">&nbsp;{% trans %}(pinned){% endtrans %}</span>
+										{% endif %}
+										{% elif screen.device_id %}
+										<a class="button is-small is-rounded" href="{{ url_for('admin.set_master_splash', device_id=screen.device_id) }}">
+											{# MSG: Button that makes this screen the one driving playback. #}
+											{% trans %}Make master{% endtrans %}
+										</a>
+										{% else %}
+										<span class="is-size-7 has-text-grey">--</span>
+										{% endif %}
+									</td>
+								</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+					</div>
+					{% if master_splash_device %}
+					<a class="is-size-7" href="{{ url_for('admin.set_master_splash', device_id='none') }}">
+						{# MSG: Link that clears the admin's chosen master screen. #}
+						{% trans %}Clear the pinned screen{% endtrans %}
+					</a>
+					{% endif %}
+					{% else %}
+					<p class="has-text-grey">{% trans %}No splash screens connected.{% endtrans %}</p>
+					{% endif %}
+				</div>
+			</div>
+
+			<hr class="my-0">
+
+			<header class="card-header py-3 px-5 collapsible-header is-collapsed">
 				<h3 class="m-0">{# MSG: Title text for the Devices section of preferences #}{% trans %}Devices{% endtrans %}</h3>
 			</header>
 			<div class="card-content collapsible-content">

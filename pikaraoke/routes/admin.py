@@ -20,6 +20,7 @@ from pikaraoke.lib.current_app import (
     verify_csrf_token,
 )
 from pikaraoke.lib.youtube_dl import get_youtubedl_version, upgrade_youtubedl
+from pikaraoke.routes.socket_events import broadcast_splash_role, splash_registry
 
 _ = flask_babel.gettext
 
@@ -93,6 +94,39 @@ def sync_library():
     if started:
         return jsonify({"status": "started"})
     return jsonify({"status": "already_syncing"})
+
+
+@admin_bp.route("/splash/master/<device_id>")
+def set_master_splash(device_id):
+    """Pin a splash screen as the one that drives playback.
+
+    Keyed on the device rather than the socket, so the chosen screen reclaims
+    the role after reconnects instead of coming back as a slave against its
+    own not-yet-reaped socket.
+    """
+    if not is_admin():
+        flash(_("You don't have permission to do that"), "is-danger")
+        return redirect(url_for("info.info"))
+
+    k = get_karaoke_instance()
+    # "none" clears the pin and returns to electing whoever registers first.
+    device_id = "" if device_id == "none" else device_id
+    k.preferences.set("master_splash_device", device_id)
+
+    promoted = splash_registry.pin_device(device_id)
+    if promoted:
+        broadcast_splash_role(promoted, "master")
+        for screen in splash_registry.screens():
+            if screen.sid != promoted:
+                broadcast_splash_role(screen.sid, "slave")
+
+    if device_id:
+        # MSG: Message shown after choosing which screen drives playback.
+        flash(_("Master screen updated. Keep the sound on this one."), "is-success")
+    else:
+        # MSG: Message shown after clearing the chosen master screen.
+        flash(_("Master screen cleared. The first screen to connect will lead."), "is-success")
+    return redirect(url_for("info.info"))
 
 
 @admin_bp.route("/unblock_ip/<ip_address>")

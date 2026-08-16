@@ -290,6 +290,7 @@ def test_preference_manager_defaults_exist():
         "itunes_search_country",
         "theme",
         "ytdl_update_channel",
+        "master_splash_device",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys

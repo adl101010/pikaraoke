@@ -27,6 +27,15 @@ let isMaster = false;
 let uiScale = null;
 let clockIntervalId = null;
 
+// How far a follower screen may drift before it seeks to match the master.
+// Tight enough that lyrics still track the audio coming from the master's TV;
+// seeks are audible, so don't tighten this without muting the other screens.
+const SYNC_TOLERANCE_SECONDS = 0.5;
+// Consecutive over-tolerance readings required before seeking, so network
+// jitter alone can't cause a jump.
+const SYNC_STRIKES_BEFORE_SEEK = 2;
+let driftStrikes = 0;
+
 // Browser detection
 const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 const isMobileSafari = isSafari && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1);
@@ -660,15 +669,27 @@ const setupSocketEvents = () => {
   socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });
 
   socket.on("playback_position", (position) => {
-    if (!isMaster) {
-      const video = getVideoPlayer();
-      if (isMediaPlaying(video)) {
-        if (Math.abs(video.currentTime - position) > 2) {
-          console.log("Slave drifting, syncing position to:", position);
-          video.currentTime = position;
-        }
-      }
+    if (isMaster) return;
+    const video = getVideoPlayer();
+    if (!isMediaPlaying(video)) return;
+
+    // Acted on the moment it arrives, so the only staleness is one-way network
+    // transit -- tens of milliseconds, comfortably inside the tolerance below.
+    const drift = Math.abs(video.currentTime - position);
+
+    if (drift <= SYNC_TOLERANCE_SECONDS) {
+      driftStrikes = 0;
+      return;
     }
+
+    // Two consecutive readings before acting, so a single jittery sample over
+    // a flaky link doesn't cause a pointless and visible jump.
+    driftStrikes += 1;
+    if (driftStrikes < SYNC_STRIKES_BEFORE_SEEK) return;
+
+    driftStrikes = 0;
+    console.log(`Slave drifting ${drift.toFixed(2)}s, syncing to:`, position);
+    video.currentTime = position;
   });
 }
 
