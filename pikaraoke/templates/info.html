@@ -258,7 +258,10 @@
 		window.socket.emit("request_mic_settings");
 		{% endif %}
 
-		// Fetch system stats asynchronously
+		{% if admin %}
+		// Both endpoints reject non-admins with a 403. Firing them for guests
+		// left the stats stuck on "Loading..." and put a stream of 403s on the
+		// wire, which IPS signatures flag as an information leak.
 			$.getJSON("{{ url_for('info.get_system_stats') }}", function(data) {
 				if (data.error) {
 					console.error("Error fetching stats:", data.error);
@@ -277,6 +280,7 @@
 					$("#library-song-count").text(data.song_count);
 				}
 			});
+		{% endif %}
 
 			// Sync Now button
 			$("#sync-library-btn").click(function() {
@@ -1070,6 +1074,7 @@
 					</ul>
 				</div>
 			</div>
+			{% if admin %}
 			<header class="card-header py-3 px-5">
 					{# MSG: Header of the information section about the System stats. #}
 					<h3 class="m-0">{% trans %}System stats{% endtrans %}</h3>
@@ -1086,6 +1091,7 @@
 					</ul>
 				</div>
 			</div>
+			{% endif %}
 		</div>
 
 		{# MSG: Title of the updates section. #}
