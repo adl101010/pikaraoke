@@ -375,10 +375,19 @@ const handleNowPlayingUpdate = (np) => {
       // so a screen opened mid-song silently started from the beginning and only
       // caught up when the master's next position broadcast arrived.
       video.play().then(() => {
-        if (np.now_playing_position && Math.abs(video.currentTime - np.now_playing_position) > 2) {
-          console.log("Syncing to server position:", np.now_playing_position);
-          video.currentTime = np.now_playing_position;
+        const target = np.now_playing_position;
+        if (!target || Math.abs(video.currentTime - target) <= 2) return;
+        // Only seek somewhere the stream has actually reached. A song that has
+        // just started is still transcoding, so seeking past the end of what
+        // exists leaves the element buffering forever instead of playing.
+        const seekable = video.seekable;
+        const furthest = seekable.length ? seekable.end(seekable.length - 1) : 0;
+        if (target > furthest) {
+          console.log(`Not seeking to ${target}: only ${furthest}s available yet`);
+          return;
         }
+        console.log("Syncing to server position:", target);
+        video.currentTime = target;
       }).catch(err => {
         console.error('Play failed:', err);
         // Retry once if it was an autoplay block

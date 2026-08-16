@@ -116,6 +116,12 @@ class PlaybackController:
         self.now_playing_duration = result.duration
         self.now_playing_url = result.stream_url
         self.now_playing_subtitle_url = result.subtitle_url
+        # A new song starts at the beginning. Any position still held belongs
+        # to the song that just ended -- a late position report from the master
+        # can land after end_song cleared it -- and screens use this to seek on
+        # load, so leaving it would send them into a stream that has only just
+        # begun transcoding, where they stall rather than play.
+        self.now_playing_position = None
         self.is_paused = False
 
         self.events.emit("playback_started")

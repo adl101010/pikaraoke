@@ -335,3 +335,45 @@ class TestPlaybackControllerResetNowPlaying:
         assert pc.now_playing_user is None
         assert pc.is_playing is False
         assert pc.is_paused is True
+
+
+class TestNewSongClearsPosition:
+    """A stale position sends screens seeking into a stream that has only just
+    begun transcoding, where they buffer forever instead of playing."""
+
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    def test_starting_a_song_clears_the_previous_position(
+        self, mock_sleep, mock_isfile, test_prefs
+    ):
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: "Song")
+        pc.stream_manager.play_file = MagicMock(
+            return_value=PlaybackResult(
+                success=True, stream_url="/stream/new.m3u8", subtitle_url=None, duration=180
+            )
+        )
+        # Where the skipped song had got to.
+        pc.now_playing_position = 81.29
+        pc.is_playing = True
+
+        pc.play_file("/songs/next.mp4", "Alex")
+
+        assert pc.now_playing_position is None
+
+    @patch("pikaraoke.lib.playback_controller.os.path.isfile", return_value=True)
+    @patch("pikaraoke.lib.playback_controller.time.sleep")
+    def test_position_is_not_reported_to_clients_until_it_is_real(
+        self, mock_sleep, mock_isfile, test_prefs
+    ):
+        pc = PlaybackController(test_prefs, EventSystem(), lambda x, remove_youtube_id=True: "Song")
+        pc.stream_manager.play_file = MagicMock(
+            return_value=PlaybackResult(
+                success=True, stream_url="/stream/new.m3u8", subtitle_url=None, duration=180
+            )
+        )
+        pc.now_playing_position = 81.29
+        pc.is_playing = True
+
+        pc.play_file("/songs/next.mp4", "Alex")
+
+        assert pc.get_now_playing()["now_playing_position"] is None
