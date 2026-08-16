@@ -111,16 +111,24 @@ def pause():
 
 @controller_bp.route("/transpose/<semitones>", methods=["GET"])
 def transpose(semitones):
-    """Transpose (pitch shift) the current song."""
+    """Transpose (pitch shift) the current song.
+
+    Admin-only: re-keying a song under whoever is singing it is as disruptive
+    as skipping them. Guests don't see the control, but hiding it isn't a
+    permission -- the endpoint has to refuse them too.
+    """
     k = get_karaoke_instance()
-    user = request.args.get("user", "")
-    if is_action_blocked(k, user):
+    if not is_admin():
+        # MSG: Message shown after trying to change a song's key without admin permissions.
+        flash(_("You don't have permission to change the key"), "is-danger")
         return redirect(url_for("home.home"))
+    user = request.args.get("user", "")
     k.audit_log.record(
         user,
         _("Changed key"),
         "%s semitones -- %s" % (semitones, k.playback_controller.now_playing or ""),
         get_client_ip(),
+        get_device_id(),
     )
     broadcast_event("skip", "transpose current")
     k.transpose_current(int(semitones))

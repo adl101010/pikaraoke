@@ -10,7 +10,7 @@ None of this exists without the original project, so if it's made your parties b
 
 ## Custom features & improvements
 
-- **Public player controls** — Play, pause, transpose, and volume no longer require the admin password, so anyone at the party can help run the show.
+- **Public player controls** — Play, pause, and volume no longer require the admin password, so anyone at the party can help run the show. Changing key stays with admins, alongside scrubbing: both re-shape a song under whoever is singing it.
 - **Skip your own song** — Picked the wrong version, or want to bail halfway through? A "Skip mine" button appears in the player controls while your own song is playing. Skipping anyone *else's* still takes an admin, since cutting off another singer felt like a step too far.
 - **Guests are known by device, not by the name they type** — Display names are just a cookie anyone can edit, so each phone quietly gets its own private ID as well. That's what decides whether a song is yours to skip, so renaming yourself to match whoever's on the mic doesn't get you anything. Admins get a per-device view of how many songs each phone has sung, flagged when one device has gone by more than one name.
 - **Scrub to the good part** — Admins get a seek bar in the player controls, so you can jump past a long intro instead of waiting it out. Every screen moves together. Turn on "complete transcode before play" in the admin panel if you want the whole song scrubbable the moment it starts; otherwise you can only jump as far as the song has transcoded, and the seek is pulled back to the furthest point that's actually ready.

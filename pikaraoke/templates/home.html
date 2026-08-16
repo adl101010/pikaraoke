@@ -476,7 +476,9 @@
 	</div>
 	<hr />
 
-	{% if is_transpose_enabled %}
+	{# Re-keying a song under whoever is singing it is as disruptive as skipping
+	   them, so this matches the scrubber and stays admin-only. #}
+	{% if admin and is_transpose_enabled %}
 	<div class="is-flex" style="justify-content: space-between">
 		<div>
 			{# MSG: Title of a control to change the key/pitch of the playing song. #}

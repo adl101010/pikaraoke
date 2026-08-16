@@ -174,7 +174,7 @@ class TestSkipRoute:
 
 
 class TestAuditLogging:
-    """Pause/transpose/volume aren't admin-gated, but should still be logged."""
+    """Pause/volume aren't admin-gated, but should still be logged."""
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
     @patch("pikaraoke.routes.controller.broadcast_event")
@@ -208,22 +208,6 @@ class TestAuditLogging:
 
         mock_karaoke.audit_log.record.assert_called_once_with(
             "Bob", "Resumed playback", "Song A", "127.0.0.1"
-        )
-
-    @patch("pikaraoke.routes.controller.get_karaoke_instance")
-    @patch("pikaraoke.routes.controller.broadcast_event")
-    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
-    def test_transpose_logs_semitones_and_song(
-        self, mock_gettext, mock_broadcast, mock_get_instance, client
-    ):
-        mock_karaoke = _unblocked_karaoke()
-        mock_karaoke.playback_controller.now_playing = "Song A"
-        mock_get_instance.return_value = mock_karaoke
-
-        client.get("/transpose/3?user=Carol")
-
-        mock_karaoke.audit_log.record.assert_called_once_with(
-            "Carol", "Changed key", "3 semitones -- Song A", "127.0.0.1"
         )
 
     @patch("pikaraoke.routes.controller.get_karaoke_instance")
@@ -331,6 +315,46 @@ class TestActionBlocking:
         client.get("/vol_up?user=RealPerson")
 
         mock_karaoke.vol_up.assert_called_once()
+
+
+class TestTransposeRoute:
+    """Changing key is admin-only, like skipping and scrubbing."""
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_non_admin_cannot_change_key(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        """Hiding the control isn't a permission -- the route must refuse too."""
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = "Song A"
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/transpose/3?user=Carol")
+
+        assert response.status_code == 302
+        mock_karaoke.transpose_current.assert_not_called()
+        mock_karaoke.audit_log.record.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=True)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_event")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_admin_change_key_transposes_and_logs(
+        self, mock_gettext, mock_broadcast, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = "Song A"
+        mock_get_instance.return_value = mock_karaoke
+
+        client.get("/transpose/3?user=Carol")
+
+        mock_karaoke.transpose_current.assert_called_once_with(3)
+        mock_karaoke.audit_log.record.assert_called_once_with(
+            "Carol", "Changed key", "3 semitones -- Song A", "127.0.0.1", ""
+        )
 
 
 class TestSeekRoute:
