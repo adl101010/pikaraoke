@@ -17,6 +17,7 @@ from pikaraoke.lib.current_app import (
 )
 from pikaraoke.lib.get_platform import get_platform, is_linux
 from pikaraoke.lib.session_stats import get_sessions, is_session_live
+from pikaraoke.lib.youtube_dl import get_youtubedl_build
 
 _ = flask_babel.gettext
 
@@ -37,6 +38,7 @@ def info():
     itunes_search_country = k.preferences.get_or_default("itunes_search_country")
     # yt-dlp
     youtubedl_version = k.youtubedl_version
+    youtubedl_build = get_youtubedl_build(youtubedl_version)
 
     audit_log_entries = k.audit_log.get_recent(100) if is_admin() else []
     blocked_ips = k.ip_blocklist.get_all() if is_admin() else []
@@ -71,6 +73,7 @@ def info():
         ffmpeg_version=k.ffmpeg_version,
         is_transpose_enabled=k.is_transpose_enabled,
         youtubedl_version=youtubedl_version,
+        youtubedl_build=youtubedl_build,
         pikaraoke_version=VERSION,
         cpu=None,
         memory=None,

@@ -9,6 +9,7 @@ import pytest
 from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
     get_youtube_id_from_url,
+    get_youtubedl_build,
     get_youtubedl_version,
     upgrade_youtubedl,
 )
@@ -339,3 +340,27 @@ class TestUpgradeChannel:
     def test_unknown_channel_is_treated_as_stable(self):
         _, pip_argv = self._run("banana")
         assert "--pre" not in pip_argv
+
+
+class TestGetYoutubedlBuild:
+    """Stable is dated YYYY.MM.DD; nightlies carry a time component or a dev marker."""
+
+    @pytest.mark.parametrize("version", ["2026.07.04", "2025.12.01", "2024.2.1"])
+    def test_stable_releases(self, version):
+        assert get_youtubedl_build(version) == "stable"
+
+    @pytest.mark.parametrize(
+        "version", ["2026.08.16.020253", "2026.8.16.20253.dev0", "2026.07.04.123456"]
+    )
+    def test_nightly_builds(self, version):
+        assert get_youtubedl_build(version) == "nightly"
+
+    @pytest.mark.parametrize("version", ["Not found", "Error", "", "unknown"])
+    def test_unreadable_versions(self, version):
+        assert get_youtubedl_build(version) == "unknown"
+
+    def test_reads_the_installed_version_when_not_given_one(self):
+        with patch(
+            "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.08.16.020253"
+        ):
+            assert get_youtubedl_build() == "nightly"

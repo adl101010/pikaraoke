@@ -1027,10 +1027,28 @@
 			<div class="card-content collapsible-content">
 				<div class="content">
 					{# MSG: Text explaining why you might want to update yt-dlp. #}
-					<p>{% trans %}
+					<p class="mb-2">{% trans %}
 						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
 						The current installed version is: "{{ youtubedl_version }}".
 					{% endtrans %}</p>
+					<p class="mb-4">
+						{# MSG: Label before a tag showing whether the installed yt-dlp is a stable or nightly build. #}
+						{% trans %}Installed build{% endtrans %}:
+						{% if youtubedl_build == "nightly" %}
+						<span class="tag is-warning">{% trans %}Nightly{% endtrans %}</span>
+						{% elif youtubedl_build == "stable" %}
+						<span class="tag is-success">{% trans %}Stable{% endtrans %}</span>
+						{% else %}
+						{# MSG: Tag shown when the installed yt-dlp version could not be read. #}
+						<span class="tag">{% trans %}Unknown{% endtrans %}</span>
+						{% endif %}
+						{% if youtubedl_build != "unknown" and youtubedl_build != ytdl_update_channel %}
+						<span class="is-size-7 has-text-warning">
+							{# MSG: Warning that the installed yt-dlp build doesn't match the chosen release channel yet. #}
+							&mdash; {% trans %}doesn't match the channel below yet. Press Update to switch.{% endtrans %}
+						</span>
+						{% endif %}
+					</p>
 					<div class="field" style="max-width: 320px">
 						<label class="label is-size-7" for="pref-ytdl-update-channel">
 							{# MSG: Label for the dropdown choosing which yt-dlp release channel to update to. #}

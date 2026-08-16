@@ -43,6 +43,24 @@ def get_youtubedl_version() -> str:
         return "Error"
 
 
+def get_youtubedl_build(version: str | None = None) -> str:
+    """Whether the installed yt-dlp is a stable or nightly build.
+
+    Stable releases are dated YYYY.MM.DD. Nightlies carry a time component
+    (2026.08.16.020253) or a pip pre-release suffix, so anything with more
+    than three parts -- or a "dev" marker -- came from the nightly channel.
+
+    Returns:
+        "stable", "nightly", or "unknown" if the version couldn't be read.
+    """
+    version = get_youtubedl_version() if version is None else version
+    if not version or not version[0].isdigit():
+        return "unknown"
+    if "dev" in version:
+        return "nightly"
+    return "nightly" if len(version.split(".")) > 3 else "stable"
+
+
 def get_youtube_id_from_url(url: str) -> str | None:
     """Extract the YouTube video ID from a URL.
 
