@@ -116,6 +116,13 @@ class KaraokeDatabase:
             with self._conn:
                 self._conn.execute("ALTER TABLE play_events ADD COLUMN device_id TEXT")
 
+        # Indexed here rather than in the schema, which runs before the column
+        # above exists on databases created before device tracking.
+        with self._conn:
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_play_events_device_id ON play_events(device_id)"
+            )
+
     # ------------------------------------------------------------------
     # Read operations
     # ------------------------------------------------------------------

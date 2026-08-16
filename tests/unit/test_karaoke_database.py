@@ -495,5 +495,20 @@ class TestDeviceSchemaMigration:
             assert events[0]["device_id"] is None
             db.record_play("/songs/new.mp4", "Bob", "device-bob")
             assert db.get_all_play_events()[-1]["device_id"] == "device-bob"
+            assert self._has_device_index(db)
         finally:
             db.close()
+
+    def test_indexes_device_id_on_a_new_database(self, tmp_path):
+        db = KaraokeDatabase(str(tmp_path / "new.db"))
+        try:
+            assert self._has_device_index(db)
+        finally:
+            db.close()
+
+    @staticmethod
+    def _has_device_index(db) -> bool:
+        rows = db._conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'play_events'"
+        ).fetchall()
+        return any(row["name"] == "idx_play_events_device_id" for row in rows)
