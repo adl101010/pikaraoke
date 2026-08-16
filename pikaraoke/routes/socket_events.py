@@ -25,6 +25,17 @@ def broadcast_splash_role(sid: str, role: str) -> None:
         _socketio.emit("splash_role", role, room=sid)
 
 
+def broadcast_seek(position: float) -> None:
+    """Ask every splash screen to jump to a position, in seconds.
+
+    Sent to all of them rather than only the master so they move together.
+    Waiting for the followers' drift correction would leave them up to a
+    second behind, which is very visible on a wall of TVs.
+    """
+    if _socketio is not None:
+        _socketio.emit("seek", position, room=SPLASH_ROOM)
+
+
 def setup_socket_events(socketio):
     """Register Socket.IO event handlers.
 

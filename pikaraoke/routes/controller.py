@@ -1,7 +1,7 @@
 """Playback control routes for skip, pause, volume, and transpose."""
 
 import flask_babel
-from flask import flash, redirect, request, url_for
+from flask import flash, jsonify, redirect, request, url_for
 from flask_smorest import Blueprint
 
 from pikaraoke.lib.current_app import (
@@ -12,11 +12,49 @@ from pikaraoke.lib.current_app import (
     is_action_blocked,
     is_admin,
 )
+from pikaraoke.routes.socket_events import broadcast_seek
 
 _ = flask_babel.gettext
 
 
 controller_bp = Blueprint("controller", __name__)
+
+
+@controller_bp.route("/seek/<int:position>")
+def seek(position):
+    """Jump the current song to a position, in whole seconds.
+
+    Admin-only: scrubbing someone else's song mid-performance is as
+    disruptive as skipping it.
+    """
+    k = get_karaoke_instance()
+    if not is_admin():
+        # MSG: Message shown after trying to scrub a song without admin permissions.
+        flash(_("You don't have permission to scrub songs"), "is-danger")
+        return jsonify({"success": False}), 403
+
+    if not k.playback_controller.now_playing:
+        return jsonify({"success": False}), 409
+
+    position = max(0, position)
+    duration = k.playback_controller.now_playing_duration
+    if duration:
+        # Landing exactly on the end just ends the song; leave a little room.
+        position = min(position, max(0, int(duration) - 2))
+
+    # Recorded here so a screen loading mid-scrub lands in the right place;
+    # the screens themselves clamp again to what they can actually play.
+    k.playback_controller.now_playing_position = position
+    k.audit_log.record(
+        request.args.get("user", ""),
+        # MSG: Audit log entry when an admin scrubs to a position in a song.
+        _("Scrubbed song"),
+        f"{k.playback_controller.now_playing or ''} -> {position}s",
+        get_client_ip(),
+        get_device_id(),
+    )
+    broadcast_seek(position)
+    return jsonify({"success": True, "position": position})
 
 
 @controller_bp.route("/skip")

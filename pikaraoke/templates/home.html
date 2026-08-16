@@ -20,6 +20,40 @@
 	// see the self-skip button -- their skip already covers their own songs.
 	var isAdmin = {{ 'true' if admin else 'false' }};
 
+	var scrubDuration = 0;
+	var scrubPosition = 0;
+	var scrubPaused = true;
+	var scrubSongUrl = null;
+	var isScrubbing = false;
+
+	function formatClock(seconds) {
+		seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+		var mins = Math.floor(seconds / 60);
+		var secs = seconds % 60;
+		return mins + ":" + (secs < 10 ? "0" : "") + secs;
+	}
+
+	function renderScrubber() {
+		// Leave the thumb alone while it's being dragged, or it fights the drag.
+		if (isScrubbing) return;
+		var el = document.getElementById("scrubber");
+		if (!el) return;
+		el.max = Math.max(1, Math.round(scrubDuration));
+		el.value = Math.min(Math.round(scrubPosition), el.max);
+		$("#scrub-position").text(formatClock(scrubPosition));
+		$("#scrub-duration").text(formatClock(scrubDuration));
+	}
+
+	// The server only reports a position when something changes, so advance it
+	// locally in between -- a thumb that moved only on song change wouldn't be
+	// much of a scrubber. Any real update resyncs it.
+	setInterval(function () {
+		if (!scrubPaused && scrubDuration && !isScrubbing) {
+			scrubPosition = Math.min(scrubPosition + 1, scrubDuration);
+			renderScrubber();
+		}
+	}, 1000);
+
 	function loadActiveSingers() {
 		$.get('{{ url_for("queue.get_queue") }}', function (data) {
 			lastQueue = JSON.parse(data);
@@ -66,6 +100,19 @@
 		console.log(np);
 		currentSingerUser = np.now_playing ? np.now_playing_user : null;
 		renderActiveSingers();
+
+		scrubDuration = np.now_playing_duration || 0;
+		scrubPaused = !!np.is_paused;
+		if (np.now_playing_url !== scrubSongUrl) {
+			// New song: the server clears the position, so start from the top
+			// rather than inheriting where the last one had got to.
+			scrubSongUrl = np.now_playing_url;
+			scrubPosition = np.now_playing_position || 0;
+		} else if (np.now_playing_position != null) {
+			scrubPosition = np.now_playing_position;
+		}
+		$("#scrubber-row").toggle(!!np.now_playing && scrubDuration > 0);
+		renderScrubber();
 
 		if (np.now_playing) {
 			// Ownership is decided server-side (the device cookie is HttpOnly), and
@@ -195,6 +242,21 @@
 			if (r) {
 				$.get(window.pikaraokeConfig.basePath + "/skip?user=" + getActionUser());
 			}
+		});
+
+		// Track the thumb while dragging, but only send the seek on release --
+		// firing on every input event would flood the screens with seeks.
+		$("#scrubber").on("input", function () {
+			isScrubbing = true;
+			$("#scrub-position").text(formatClock($(this).val()));
+		});
+
+		$("#scrubber").on("change", function () {
+			var target = parseInt($(this).val(), 10) || 0;
+			isScrubbing = false;
+			scrubPosition = target;
+			$("#scrub-position").text(formatClock(target));
+			$.get(window.pikaraokeConfig.basePath + "/seek/" + target + "?user=" + getActionUser());
 		});
 
 		$("#skip-own").click(function () {
@@ -333,6 +395,16 @@
 	<h4>{% trans %}Player Control{% endtrans %}</h4>
 	{# Both groups are shrink-proof so a narrow phone moves the whole volume
 	   group to its own line instead of orphaning the last playback control. #}
+	{% if admin %}
+	{# Scrubbing mid-performance is as disruptive as skipping, so admin only. #}
+	<div id="scrubber-row" style="display: none; margin-bottom: 12px">
+		<input type="range" min="0" max="100" value="0" step="1" id="scrubber" style="width: 100%" />
+		<div class="is-flex is-size-7 has-text-grey" style="justify-content: space-between">
+			<span id="scrub-position">0:00</span>
+			<span id="scrub-duration">0:00</span>
+		</div>
+	</div>
+	{% endif %}
 	<div class="is-size-3" style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px">
 		{# Flex rather than inline + &nbsp; spacing so the self-skip button, which is
 		   shorter than the bare icons, still centers against them. #}

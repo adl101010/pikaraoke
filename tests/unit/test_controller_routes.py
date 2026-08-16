@@ -331,3 +331,89 @@ class TestActionBlocking:
         client.get("/vol_up?user=RealPerson")
 
         mock_karaoke.vol_up.assert_called_once()
+
+
+class TestSeekRoute:
+    """Scrubbing is admin-only, and must never point past the end of a song."""
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=False)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_seek")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_non_admin_cannot_scrub(
+        self, mock_gettext, mock_seek, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/seek/30")
+
+        assert response.status_code == 403
+        mock_seek.assert_not_called()
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=True)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_seek")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_admin_seek_broadcasts_and_records_position(
+        self, mock_gettext, mock_seek, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = "Bohemian Rhapsody"
+        mock_karaoke.playback_controller.now_playing_duration = 355
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/seek/90?user=Alex")
+
+        assert response.status_code == 200
+        mock_seek.assert_called_once_with(90)
+        assert mock_karaoke.playback_controller.now_playing_position == 90
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=True)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_seek")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_seek_past_the_end_is_pulled_back(
+        self, mock_gettext, mock_seek, mock_get_instance, mock_is_admin, client
+    ):
+        """Landing on the very end would just end the song."""
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = "Short Song"
+        mock_karaoke.playback_controller.now_playing_duration = 100
+        mock_get_instance.return_value = mock_karaoke
+
+        client.get("/seek/500")
+
+        mock_seek.assert_called_once_with(98)
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=True)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_seek")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_seek_with_unknown_duration_is_left_alone(
+        self, mock_gettext, mock_seek, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = "Song"
+        mock_karaoke.playback_controller.now_playing_duration = None
+        mock_get_instance.return_value = mock_karaoke
+
+        client.get("/seek/42")
+
+        mock_seek.assert_called_once_with(42)
+
+    @patch("pikaraoke.routes.controller.is_admin", return_value=True)
+    @patch("pikaraoke.routes.controller.get_karaoke_instance")
+    @patch("pikaraoke.routes.controller.broadcast_seek")
+    @patch("pikaraoke.routes.controller._", side_effect=lambda x: x)
+    def test_seek_with_nothing_playing_is_rejected(
+        self, mock_gettext, mock_seek, mock_get_instance, mock_is_admin, client
+    ):
+        mock_karaoke = _unblocked_karaoke()
+        mock_karaoke.playback_controller.now_playing = None
+        mock_get_instance.return_value = mock_karaoke
+
+        response = client.get("/seek/30")
+
+        assert response.status_code == 409
+        mock_seek.assert_not_called()

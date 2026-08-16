@@ -756,6 +756,27 @@ const setupSocketEvents = () => {
   socket.on("preferences_reset", applyPreferencesReset);
   socket.on("score_phrases_update", (phrases) => { scoreReviews = phrases; });
 
+  socket.on("seek", (position) => {
+    const video = getVideoPlayer();
+    if (!video || !isMediaPlaying(video)) return;
+    // Clamp to what this screen has actually got. With the whole song
+    // transcoded up front that's the full duration; while it's still
+    // transcoding it isn't, and seeking past the end of real data is what
+    // leaves the element buffering instead of playing.
+    const seekable = video.seekable;
+    const furthest = seekable.length ? seekable.end(seekable.length - 1) : 0;
+    const target = Math.min(position, Math.max(0, furthest - 0.5));
+    if (target < position) {
+      console.log(`Seek to ${position}s clamped to ${target.toFixed(1)}s (transcoded so far)`);
+    } else {
+      console.log("Seeking to", target);
+    }
+    video.currentTime = target;
+    // Followers would otherwise fight this with their own drift correction
+    // on the master's next position report, a second later.
+    driftStrikes = 0;
+  });
+
   socket.on("playback_position", (position) => {
     if (isMaster) return;
     const video = getVideoPlayer();
