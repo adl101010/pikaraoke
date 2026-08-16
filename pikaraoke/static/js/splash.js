@@ -366,44 +366,9 @@ const handleNowPlayingUpdate = (np) => {
     clearVideoSource(video);
     $("#video-source").attr("src", streamUrl);
 
-    let usingHlsJs = false;
-    if (streamUrl.endsWith('.m3u8')) {
-      const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
-      if (useNativeHLS) {
-        video.src = streamUrl;
-      } else {
-        usingHlsJs = true;
-        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-        hlsInstance = new Hls({ startPosition: 0 });
-        attachHlsErrorRecovery(hlsInstance);
-        hlsInstance.loadSource(streamUrl);
-        hlsInstance.attachMedia(video);
-      }
-    }
-
-    // hls.js drives the element through a MediaSource it attaches itself.
-    // Calling load() afterwards resets the element and discards that source,
-    // which left the next song unable to start on any screen using hls.js.
-    if (!usingHlsJs) {
-      video.load();
-    }
     let playbackAttempted = false;
-    if (volume !== np.volume) {
-      volume = np.volume;
-      video.volume = volume;
-    }
-
-    const duration = $("#duration");
-    if (np.now_playing_duration) {
-      duration.text(`/${formatTime(np.now_playing_duration)}`);
-      duration.show();
-    } else {
-      duration.hide();
-    }
-
-    $("#video-container").show();
-
     const beginPlayback = () => {
+      if (playbackAttempted) return;
       playbackAttempted = true;
       // Seek only once playback has actually begun. Checking readiness straight
       // after calling play() always failed -- the promise hadn't resolved yet --
@@ -421,14 +386,48 @@ const handleNowPlayingUpdate = (np) => {
       });
     };
 
-    if (usingHlsJs) {
-      // Wait for the playlist before playing. Skipping restarts the transcode,
-      // so for a moment there's no playlist to fetch -- calling play() then
-      // leaves the element stalled rather than playing, and the master's
-      // "failed to start" timeout would kill the song ten seconds later. The
-      // song after always worked because the transcode had caught up by then.
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, beginPlayback);
+    let usingHlsJs = false;
+    if (streamUrl.endsWith('.m3u8')) {
+      const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
+      if (useNativeHLS) {
+        video.src = streamUrl;
+      } else {
+        usingHlsJs = true;
+        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+        hlsInstance = new Hls({ startPosition: 0 });
+        attachHlsErrorRecovery(hlsInstance);
+        // Subscribe before loadSource: it starts fetching straight away, and a
+        // manifest that parses before we're listening would never reach us --
+        // leaving playback never started and the song killed ten seconds later.
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, beginPlayback);
+        hlsInstance.loadSource(streamUrl);
+        hlsInstance.attachMedia(video);
+      }
+    }
+
+    // hls.js drives the element through a MediaSource it attaches itself.
+    // Calling load() afterwards resets the element and discards that source,
+    // which left the next song unable to start on any screen using hls.js.
+    if (!usingHlsJs) {
+      video.load();
+    }
+    if (volume !== np.volume) {
+      volume = np.volume;
+      video.volume = volume;
+    }
+
+    const duration = $("#duration");
+    if (np.now_playing_duration) {
+      duration.text(`/${formatTime(np.now_playing_duration)}`);
+      duration.show();
     } else {
+      duration.hide();
+    }
+
+    $("#video-container").show();
+
+    // hls.js starts from MANIFEST_PARSED, subscribed above before loading.
+    if (!usingHlsJs) {
       beginPlayback();
     }
 
