@@ -47,7 +47,12 @@
 	// The server only reports a position when something changes, so advance it
 	// locally in between -- a thumb that moved only on song change wouldn't be
 	// much of a scrubber. Any real update resyncs it.
-	setInterval(function () {
+	//
+	// SPA navigation re-runs this script every time the home page is revisited
+	// and its cleanup doesn't clear timers, so drop the previous one first.
+	// Otherwise they stack and the position gains a second per surviving timer.
+	if (window.scrubTimer) clearInterval(window.scrubTimer);
+	window.scrubTimer = setInterval(function () {
 		if (!scrubPaused && scrubDuration && !isScrubbing) {
 			scrubPosition = Math.min(scrubPosition + 1, scrubDuration);
 			renderScrubber();
@@ -291,10 +296,23 @@
 		loadNowPlaying();
 		// Refetch rather than render the pushed payload: the broadcast goes to
 		// every client, so it can't say whether the song is *this* guest's.
+		//
+		// Drop this page's previous handlers first -- the socket survives SPA
+		// navigation but these get re-registered on every visit, so without it
+		// one broadcast turns into a refetch per visit. Removing them by
+		// reference leaves the queue and splash pages' own handlers alone.
+		if (window.homeNowPlayingHandler) {
+			window.socket.off("now_playing", window.homeNowPlayingHandler);
+		}
+		window.homeNowPlayingHandler = loadNowPlaying;
 		window.socket.on("now_playing", loadNowPlaying);
 
 		//active singers sidebar
 		loadActiveSingers();
+		if (window.homeQueueUpdateHandler) {
+			window.socket.off("queue_update", window.homeQueueUpdateHandler);
+		}
+		window.homeQueueUpdateHandler = loadActiveSingers;
 		window.socket.on("queue_update", loadActiveSingers);
 
 		document.addEventListener("visibilitychange", function () {
