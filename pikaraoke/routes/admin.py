@@ -54,9 +54,11 @@ def update_ytdl():
     """Update yt-dlp to the latest version."""
     k = get_karaoke_instance()
 
+    channel = k.preferences.get_or_default("ytdl_update_channel")
+
     def update_youtube_dl():
         time.sleep(3)
-        k.youtubedl_version = upgrade_youtubedl()
+        k.youtubedl_version = upgrade_youtubedl(channel)
 
     if is_admin():
         flash(

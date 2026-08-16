@@ -222,6 +222,17 @@ def parse_pikaraoke_args() -> argparse.Namespace:
         required=False,
     )
     parser.add_argument(
+        "--ytdl-update-channel",
+        help=(
+            "Which yt-dlp release channel to upgrade to on startup. Stable trails "
+            "YouTube's changes by weeks; switch to nightly if downloads start failing. "
+            f"Also settable from the Admin page. (default: {_DEFAULTS['ytdl_update_channel']})"
+        ),
+        choices=["stable", "nightly"],
+        default=None,
+        required=False,
+    )
+    parser.add_argument(
         "-n",
         "--normalize-audio",
         help="Normalize volume. May cause performance issues on slower devices",

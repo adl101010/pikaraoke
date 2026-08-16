@@ -36,6 +36,7 @@ None of this exists without the original project, so if it's made your parties b
 - **Per-user queue limit** — Defaults to 5 songs per person (including whatever's currently playing), so one enthusiastic guest can't monopolize the whole night. Adjustable by admins.
 - **Audit log** — The admin panel logs who queued, paused, skipped, transposed, changed volume, or downloaded a song, so it's easy to see what's been happening. Each entry records the device alongside the name, so two phones both calling themselves "Dave" are still tellable apart.
 - **Timestamps in your own timezone** — Times across the admin panel and recap page follow the `TZ` you set in Docker and read as plain 12-hour clock times, rather than the UTC the database stores.
+- **yt-dlp release channel** — Stable yt-dlp can trail YouTube's changes by weeks, and when YouTube breaks a player client, downloads start failing with 403s. Pick **Nightly** in the admin panel (or `--ytdl-update-channel nightly`) and hit Update — no container restart needed, and the choice sticks across restarts.
 - **Friendlier bot protection** — An invisible trap link and a simple "you need to give a name" requirement keep bots from spamming the queue, without resorting to CAPTCHAs or IP-based rate limits (which would unfairly penalize a room full of guests sharing one WiFi network).
 - **Site-wide name prompt** — Everyone's asked for a display name on their first visit to any page, not just when searching, so the audit log and recap stats aren't full of "Anonymous."
 

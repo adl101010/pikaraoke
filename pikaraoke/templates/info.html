@@ -1031,6 +1031,29 @@
 						If downloads or searches stopped working, updating yt-dlp will probably fix it.<br/>
 						The current installed version is: "{{ youtubedl_version }}".
 					{% endtrans %}</p>
+					<div class="field" style="max-width: 320px">
+						<label class="label is-size-7" for="pref-ytdl-update-channel">
+							{# MSG: Label for the dropdown choosing which yt-dlp release channel to update to. #}
+							{% trans %}Release channel{% endtrans %}
+						</label>
+						<div class="control select is-small is-fullwidth">
+							<select
+								id="pref-ytdl-update-channel"
+								class="user-preference-input"
+								data-pref="ytdl_update_channel"
+								data-start-value="{{ ytdl_update_channel }}"
+							>
+								{# MSG: Option for the normal, tested yt-dlp release channel. #}
+								<option value="stable" {% if ytdl_update_channel == "stable" %}selected{% endif %}>{% trans %}Stable{% endtrans %}</option>
+								{# MSG: Option for the daily yt-dlp build, which fixes YouTube breakages sooner. #}
+								<option value="nightly" {% if ytdl_update_channel == "nightly" %}selected{% endif %}>{% trans %}Nightly{% endtrans %}</option>
+							</select>
+						</div>
+						<p class="help">
+							{# MSG: Help text explaining when to pick the nightly yt-dlp channel. #}
+							{% trans %}Stable can trail YouTube's changes by weeks. If downloads keep failing, switch to Nightly and press Update.{% endtrans %}
+						</p>
+					</div>
 					<a id="update-ytdl-link" class="button is-primary is-inverted" href="{{ url_for('admin.update_ytdl') }}"
 						{# MSG: Text for the link which will try and update yt-dlp on the machine running Pikaraoke. #}
 							>{% trans %}Update yt-dlp{% endtrans %}</a

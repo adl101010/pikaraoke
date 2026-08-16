@@ -276,3 +276,66 @@ class TestUpgradeYoutubedl:
             result = upgrade_youtubedl()
             assert result == "2024.01.01"
             mock_version.assert_called_once_with()
+
+
+class TestUpgradeChannel:
+    """Stable trails YouTube by weeks, so the nightly channel must actually work."""
+
+    def _pip_error(self):
+        msg = b"You installed yt-dlp with pip or using the wheel from PyPi"
+        err = subprocess.CalledProcessError(1, "yt-dlp", msg)
+        err.output = msg
+        return err
+
+    def _run(self, channel, installed="2024.02.01"):
+        """Drive upgrade_youtubedl through the pip path, return the pip argv."""
+        with patch("pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value=installed), patch(
+            "subprocess.check_output"
+        ) as mock_check, patch("pikaraoke.lib.youtube_dl.sys.prefix", "/venv"), patch(
+            "pikaraoke.lib.youtube_dl.sys.base_prefix", "/different"
+        ):
+            mock_check.side_effect = [self._pip_error(), b"Successfully installed"]
+            upgrade_youtubedl(channel)
+            return mock_check.call_args_list[0][0][0], mock_check.call_args_list[1][0][0]
+
+    def test_nightly_asks_yt_dlp_to_switch_channel(self):
+        probe_argv, _ = self._run("nightly")
+        assert "--update-to" in probe_argv
+        assert "nightly" in probe_argv
+
+    def test_nightly_installs_prereleases(self):
+        _, pip_argv = self._run("nightly")
+        assert "--pre" in pip_argv
+        assert "yt-dlp[default]" in pip_argv
+
+    def test_stable_does_not_install_prereleases(self):
+        probe_argv, pip_argv = self._run("stable")
+        assert "-U" in probe_argv
+        assert "--update-to" not in probe_argv
+        assert "--pre" not in pip_argv
+
+    def test_default_channel_is_stable(self):
+        with patch(
+            "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2024.02.01"
+        ), patch("subprocess.check_output") as mock_check, patch(
+            "pikaraoke.lib.youtube_dl.sys.prefix", "/venv"
+        ), patch(
+            "pikaraoke.lib.youtube_dl.sys.base_prefix", "/different"
+        ):
+            mock_check.side_effect = [self._pip_error(), b"ok"]
+            upgrade_youtubedl()
+            assert "--pre" not in mock_check.call_args_list[1][0][0]
+
+    def test_returning_to_stable_from_a_nightly_forces_reinstall(self):
+        """pip sees the installed dev build as newer, so --upgrade alone is a no-op."""
+        _, pip_argv = self._run("stable", installed="2026.08.16.020253.dev0")
+        assert "--force-reinstall" in pip_argv
+        assert "--pre" not in pip_argv
+
+    def test_nightly_does_not_force_reinstall(self):
+        _, pip_argv = self._run("nightly", installed="2026.08.16.020253.dev0")
+        assert "--force-reinstall" not in pip_argv
+
+    def test_unknown_channel_is_treated_as_stable(self):
+        _, pip_argv = self._run("banana")
+        assert "--pre" not in pip_argv

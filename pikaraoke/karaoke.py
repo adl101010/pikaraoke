@@ -132,6 +132,7 @@ class Karaoke:
         splash_delay: int | None = None,
         volume: float | None = None,
         enable_title_tidy: bool | None = None,
+        ytdl_update_channel: str | None = None,
     ) -> None:
         """Initialize the Karaoke instance.
 
@@ -143,6 +144,7 @@ class Karaoke:
             hide_splash_screen: Run in headless mode.
             high_quality: Download higher quality videos (up to 1080p).
             volume: Default volume level (0.0 to 1.0).
+            ytdl_update_channel: yt-dlp release channel, "stable" or "nightly".
             normalize_audio: Apply loudness normalization.
             complete_transcode_before_play: Buffer entire file before playback.
             buffer_size: Transcode buffer size in KB.

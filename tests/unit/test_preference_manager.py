@@ -289,6 +289,7 @@ def test_preference_manager_defaults_exist():
         "metadata_provider",
         "itunes_search_country",
         "theme",
+        "ytdl_update_channel",
     }
 
     assert set(PreferenceManager.DEFAULTS.keys()) == expected_keys

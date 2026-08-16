@@ -115,6 +115,7 @@ def info():
         blocked_ips=blocked_ips,
         top_songs=top_songs,
         device_stats=device_stats,
+        ytdl_update_channel=k.preferences.get_or_default("ytdl_update_channel"),
         session_history=session_history,
     )
 

@@ -284,6 +284,7 @@ def main() -> None:
         splash_delay=args.splash_delay,
         log_level=args.log_level,
         volume=args.volume,
+        ytdl_update_channel=args.ytdl_update_channel,
         normalize_audio=args.normalize_audio,
         complete_transcode_before_play=args.complete_transcode_before_play,
         buffer_size=args.buffer_size,
@@ -340,7 +341,10 @@ def main() -> None:
     app.jinja_env.globals.update(url_escape=quote)
 
     if not args.skip_youtubedl_upgrade:
-        spawn(upgrade_youtubedl)
+        # Read from preferences, not args: the channel persists in config.ini on
+        # the data volume, so a container recreated without the flag still comes
+        # back on the channel the admin chose.
+        spawn(upgrade_youtubedl, k.preferences.get_or_default("ytdl_update_channel"))
     else:
         logging.info("Skipping yt-dlp upgrade on startup")
 

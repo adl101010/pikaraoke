@@ -70,17 +70,27 @@ def get_youtube_id_from_url(url: str) -> str | None:
     return video_id
 
 
-def upgrade_youtubedl() -> str:
-    """Upgrade yt-dlp to the latest version.
+def upgrade_youtubedl(channel: str = "stable") -> str:
+    """Upgrade yt-dlp on the stable or nightly channel.
 
-    Attempts self-upgrade first, then falls back to pip if needed.
+    Nightly exists as an escape hatch: stable releases trail YouTube's changes
+    by weeks, and when YouTube breaks a player client the fix usually lands in
+    nightly long before the next stable.
+
+    Args:
+        channel: "stable" or "nightly". Anything else is treated as stable.
 
     Returns:
         The new version string after upgrade.
     """
+    nightly = channel == "nightly"
+    # Standalone builds can switch channels themselves; pip installs answer
+    # both of these by telling us to use pip, which is handled below.
+    update_args = ["--update-to", "nightly"] if nightly else ["-U"]
+
     try:
         output = (
-            subprocess.check_output(yt_dlp_cmd + ["-U"], stderr=subprocess.STDOUT)
+            subprocess.check_output(yt_dlp_cmd + update_args, stderr=subprocess.STDOUT)
             .decode("utf8")
             .strip()
         )
@@ -98,7 +108,16 @@ def upgrade_youtubedl() -> str:
 
     upgrade_success = False
     if "pip" in output.lower():
-        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp"]
+        # Install the extras too, or an upgrade can leave yt-dlp without the
+        # optional dependencies the image was built with.
+        pip_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp[default]"]
+
+        if nightly:
+            pip_cmd.append("--pre")
+        elif "dev" in get_youtubedl_version():
+            # Switching back to stable from a nightly: pip considers the
+            # installed dev build newer, so --upgrade alone is a no-op.
+            pip_cmd.append("--force-reinstall")
 
         # Outside a venv, pip requires --break-system-packages on modern Python
         if sys.prefix == sys.base_prefix:

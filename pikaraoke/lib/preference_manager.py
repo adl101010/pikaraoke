@@ -50,6 +50,9 @@ class PreferenceManager:
         "metadata_provider": "itunes",
         "itunes_search_country": "US",
         "theme": "dark",
+        # "stable" or "nightly". Stable trails YouTube's changes by weeks, so
+        # nightly is the escape hatch when downloads start failing.
+        "ytdl_update_channel": "stable",
     }
 
     def __init__(self, config_file_path: str = "config.ini", target: object | None = None) -> None:
