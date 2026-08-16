@@ -112,6 +112,37 @@ const hideVideo = () => {
   $("#video-container").hide();
 }
 
+// The markup feeds the player through a <source> child, but hls.js bypasses
+// that and assigns its MediaSource straight to video.src as a blob: URL.
+// Clearing only the child therefore leaves the blob in place, and once hls.js
+// has been destroyed that blob is revoked -- so the next load() asks for a
+// blob that no longer exists (ERR_FILE_NOT_FOUND) and the element is left
+// wedged, unable to start the following song.
+const clearVideoSource = (video) => {
+  video.removeAttribute("src");
+  $("#video-source").attr("src", "");
+  video.load();
+};
+
+// Skipping a song kills ffmpeg and deletes the segments out from under any
+// other screen still streaming them. Without this, those screens take a fatal
+// error, stall, and are torn down by the "failed to start" timeout instead of
+// simply moving on to the next song.
+const attachHlsErrorRecovery = (hls) => {
+  hls.on(Hls.Events.ERROR, (event, data) => {
+    if (!data.fatal) return;
+    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+      console.warn("HLS network error, retrying:", data.details);
+      hls.startLoad();
+    } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+      console.warn("HLS media error, recovering:", data.details);
+      hls.recoverMediaError();
+    } else {
+      console.warn("HLS fatal error, waiting for the next song:", data.details);
+    }
+  });
+};
+
 const endSong = async (reason = null, showScore = false) => {
   if (showScore && !PikaraokeConfig.disableScore) {
     isScoreShown = true;
@@ -119,14 +150,15 @@ const endSong = async (reason = null, showScore = false) => {
     isScoreShown = false;
   }
   currentVideoUrl = null;
+  const video = getVideoPlayer();
+  video.pause();
   if (hlsInstance) {
     hlsInstance.destroy();
     hlsInstance = null;
   }
-  const video = getVideoPlayer();
-  video.pause();
-  $("#video-source").attr("src", "");
-  video.load();
+  // Must drop video.src too: destroy() revokes the blob hls.js put there, and
+  // reloading with it still set is what produced ERR_FILE_NOT_FOUND.
+  clearVideoSource(video);
   hideVideo();
   if (isMaster) {
     socket.emit("end_song", reason);
@@ -331,23 +363,30 @@ const handleNowPlayingUpdate = (np) => {
   if (np.now_playing_url && np.now_playing_url !== currentVideoUrl) {
     currentVideoUrl = np.now_playing_url;
     const streamUrl = np.now_playing_url;
-    $("#video-source").attr("src", "");
-    video.load();
+    clearVideoSource(video);
     $("#video-source").attr("src", streamUrl);
 
+    let usingHlsJs = false;
     if (streamUrl.endsWith('.m3u8')) {
       const useNativeHLS = video.canPlayType('application/vnd.apple.mpegurl') && !isChrome && !isEdge && !isMobileSafari;
       if (useNativeHLS) {
         video.src = streamUrl;
       } else {
+        usingHlsJs = true;
         if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
         hlsInstance = new Hls({ startPosition: 0 });
+        attachHlsErrorRecovery(hlsInstance);
         hlsInstance.loadSource(streamUrl);
         hlsInstance.attachMedia(video);
       }
     }
 
-    video.load();
+    // hls.js drives the element through a MediaSource it attaches itself.
+    // Calling load() afterwards resets the element and discards that source,
+    // which left the next song unable to start on any screen using hls.js.
+    if (!usingHlsJs) {
+      video.load();
+    }
     if (volume !== np.volume) {
       volume = np.volume;
       video.volume = volume;
