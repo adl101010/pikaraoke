@@ -396,11 +396,21 @@ const handleNowPlayingUpdate = (np) => {
         if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
         hlsInstance = new Hls({ startPosition: 0 });
         attachHlsErrorRecovery(hlsInstance);
-        // Subscribe before loadSource: it starts fetching straight away, and a
-        // manifest that parses before we're listening would never reach us --
-        // leaving playback never started and the song killed ten seconds later.
-        hlsInstance.on(Hls.Events.MANIFEST_PARSED, beginPlayback);
-        hlsInstance.loadSource(streamUrl);
+
+        // hls.js's documented order: attach the media first, load the source
+        // once it's attached, and play once the manifest is parsed. Calling
+        // loadSource() before attachMedia() means a manifest that parses
+        // quickly -- as it does when another screen has already made the
+        // server build that playlist -- reaches us before the element has a
+        // source, so play() does nothing and the song stalls in silence.
+        hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
+          console.log("HLS media attached, loading:", streamUrl);
+          hlsInstance.loadSource(streamUrl);
+        });
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log("HLS manifest parsed, starting playback");
+          beginPlayback();
+        });
         hlsInstance.attachMedia(video);
       }
     }
@@ -439,6 +449,16 @@ const handleNowPlayingUpdate = (np) => {
       // check reads as fine.
       const stalled = !isMediaPlaying(video) && !video.paused;
       if (stalled || !playbackAttempted) {
+        // Says which of the two it was, so a failure here doesn't have to be
+        // diagnosed by guesswork.
+        console.warn("Song failed to start", {
+          playbackAttempted,
+          stalled,
+          paused: video.paused,
+          readyState: video.readyState,
+          currentTime: video.currentTime,
+          networkState: video.networkState,
+        });
         endSong("failed to start");
       }
     }, playbackStartTimeout);
