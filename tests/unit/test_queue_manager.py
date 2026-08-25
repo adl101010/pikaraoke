@@ -594,6 +594,80 @@ class TestQueueManagerHelpers:
         qm.enqueue("/songs/song2---def.mp4", "LimitedUser")
         assert qm.is_user_limited("LimitedUser") is True
 
+    def test_renaming_does_not_reset_the_limit(self, preferences, events):
+        """The limit follows the device, not the name typed into the cookie.
+
+        Counting by display name meant one phone could keep queueing forever
+        by picking a new name each time, which is exactly what the limit is
+        meant to prevent.
+        """
+        preferences.set("limit_user_songs_by", 2)
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=extract_title,
+            get_available_songs=lambda: [],
+        )
+
+        qm.enqueue("/songs/song1---abc.mp4", "Dave", device_id="phone-A")
+        qm.enqueue("/songs/song2---def.mp4", "Dave Again", device_id="phone-A")
+
+        assert qm.is_user_limited("A Third Name", device_id="phone-A") is True
+        accepted, _message = qm.enqueue(
+            "/songs/song3---ghi.mp4", "A Third Name", device_id="phone-A"
+        )
+        assert accepted is False
+        assert len(qm.queue) == 2
+
+    def test_a_separate_device_keeps_its_own_allowance(self, preferences, events):
+        """One guest hitting the limit must not lock out everyone else."""
+        preferences.set("limit_user_songs_by", 2)
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=extract_title,
+            get_available_songs=lambda: [],
+        )
+
+        qm.enqueue("/songs/song1---abc.mp4", "Dave", device_id="phone-A")
+        qm.enqueue("/songs/song2---def.mp4", "Dave", device_id="phone-A")
+
+        assert qm.is_user_limited("Erin", device_id="phone-B") is False
+
+    def test_now_playing_device_counts_toward_the_limit(self, preferences, events):
+        """The song on the mic is one of your allowance, as it is by name."""
+        preferences.set("limit_user_songs_by", 2)
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=extract_title,
+            get_available_songs=lambda: [],
+            get_now_playing_device=lambda: "phone-A",
+        )
+
+        qm.enqueue("/songs/song1---abc.mp4", "Dave", device_id="phone-A")
+
+        assert qm.is_user_limited("Dave", device_id="phone-A") is True
+
+    def test_clients_without_a_device_still_limited_by_name(self, preferences, events):
+        """Cookie-less clients keep the old behavior rather than going unlimited."""
+        preferences.set("limit_user_songs_by", 2)
+        qm = QueueManager(
+            preferences=preferences,
+            events=events,
+            get_now_playing_user=lambda: None,
+            filename_from_path=extract_title,
+            get_available_songs=lambda: [],
+        )
+
+        qm.enqueue("/songs/song1---abc.mp4", "Dave")
+        qm.enqueue("/songs/song2---def.mp4", "Dave")
+
+        assert qm.is_user_limited("Dave") is True
+
     def test_is_user_limited_includes_now_playing(self, preferences, events):
         """is_user_limited should count currently playing song."""
         preferences.set("limit_user_songs_by", 2)

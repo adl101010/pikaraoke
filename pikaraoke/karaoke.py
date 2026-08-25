@@ -292,6 +292,7 @@ class Karaoke:
             get_now_playing_user=lambda: self.playback_controller.now_playing_user,
             filename_from_path=self.song_manager.display_name_from_path,
             get_available_songs=lambda: self.song_manager.songs,
+            get_now_playing_device=lambda: self.playback_controller.now_playing_device,
         )
 
         # Initialize and start download manager

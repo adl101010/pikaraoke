@@ -26,6 +26,7 @@ class QueueManager:
         get_now_playing_user: Callable[[], str | None] | None = None,
         filename_from_path: Callable[[str, bool], str] | None = None,
         get_available_songs: Callable[[], Any] | None = None,
+        get_now_playing_device: Callable[[], str | None] | None = None,
     ) -> None:
         self.queue: list[dict[str, Any]] = []
         self._preferences = preferences
@@ -33,6 +34,7 @@ class QueueManager:
         self._get_now_playing_user = get_now_playing_user
         self._filename_from_path = filename_from_path
         self._get_available_songs = get_available_songs
+        self._get_now_playing_device = get_now_playing_device
 
     @property
     def public_queue(self) -> list[dict[str, Any]]:
@@ -48,8 +50,15 @@ class QueueManager:
         """Check if a song is already in the queue."""
         return any(item["file"] == song_path for item in self.queue)
 
-    def is_user_limited(self, user: str) -> bool:
-        """Check if a user has reached their queue limit."""
+    def is_user_limited(self, user: str, device_id: str = "") -> bool:
+        """Check if a user has reached their queue limit.
+
+        Counted per device where one is known, not per display name: the name
+        is a cookie the guest picks, so counting by it meant typing a new one
+        handed you a fresh allowance and the limit only held for people who
+        weren't trying. Clients with no device cookie still fall back to the
+        name, which is the best identity available for them.
+        """
         try:
             # A malformed preference value (e.g. from a hand-edited request)
             # must not lock every user out or crash every enqueue -- treat
@@ -60,10 +69,14 @@ class QueueManager:
         if limit <= 0 or user in ("Pikaraoke", "Randomizer"):
             return False
 
-        now_playing_user = self._get_now_playing_user() if self._get_now_playing_user else None
-        count = sum(1 for item in self.queue if item["user"] == user) + (
-            1 if now_playing_user == user else 0
-        )
+        if device_id:
+            count = sum(1 for item in self.queue if item.get("device_id") == device_id)
+            now_playing = self._get_now_playing_device() if self._get_now_playing_device else None
+            count += 1 if now_playing == device_id else 0
+        else:
+            count = sum(1 for item in self.queue if item["user"] == user)
+            now_playing = self._get_now_playing_user() if self._get_now_playing_user else None
+            count += 1 if now_playing == user else 0
         return count >= limit
 
     def _resolve_title(self, song_path: str) -> str:
@@ -128,7 +141,7 @@ class QueueManager:
                 _("Song is already in the queue: %s") % title,
             ]
 
-        if self.is_user_limited(user):
+        if self.is_user_limited(user, device_id):
             limit = self._preferences.get_or_default("limit_user_songs_by")
             logging.debug("User limited by: " + str(limit))
             return [
