@@ -162,7 +162,13 @@ def build_ffmpeg_cmd(
             # CDG needs pix_fmt for proper color space
             **({"pix_fmt": "yuv420p"} if is_cdg else {}),
             **{
-                "vsync": "cfr",
+                # "fps_mode", not the older "vsync" spelling: vsync was
+                # deprecated in ffmpeg 5 and removed outright in 8, where it
+                # aborts before transcoding and no song plays at all. The
+                # Dockerfile pins ffmpeg 7.0, which accepts both, so this only
+                # matters for native installs on a current ffmpeg -- and for
+                # whenever that pin moves.
+                "fps_mode": "cfr",
                 "avoid_negative_ts": "make_zero",
             },
         )
