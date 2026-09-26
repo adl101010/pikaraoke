@@ -777,3 +777,71 @@ def get_song_correct_name(song: str, raw_filename: str | None = None) -> str | N
         return lookup_lastfm(song)
 
     return lookup_lastfm(song)
+
+
+# Apostrophes are dropped rather than spaced, so "don't" and "dont" agree.
+# Covers the straight quote plus the curly and modifier forms that arrive in
+# filenames from YouTube titles and phone keyboards.
+_SEARCH_APOSTROPHES = "'‘’ʼʾ`´′"
+
+
+def normalize_for_search(text: str) -> str:
+    """Fold a title or a search query down to comparable text.
+
+    Punctuation in song titles is wildly inconsistent -- "Don't", "Dont",
+    "Don’t" -- so comparing it literally means a guest typing the obvious
+    thing misses a song sitting right there in the library. Accents fold too,
+    so "Beyonce" finds "Beyoncé".
+
+    Non-Latin scripts are preserved: CJK, Cyrillic and Thai characters are
+    alphanumeric, so they survive intact rather than being blanked out.
+    """
+    if not text:
+        return ""
+    # Apostrophes go first, before decomposition: NFKD turns U+00B4 into a
+    # space plus a combining mark, so stripping afterwards would split "Don`t"
+    # into two words while every other apostrophe form collapsed to one.
+    without_apostrophes = "".join(ch for ch in text if ch not in _SEARCH_APOSTROPHES)
+    # Decompose, then drop the combining marks, so accented letters reduce to
+    # their base form instead of failing to match it.
+    decomposed = unicodedata.normalize("NFKD", without_apostrophes)
+    without_accents = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    # Recompose afterwards: decomposition also splits Hangul syllables into
+    # Jamo, and leaving them apart makes Korean titles unrecognizable in the
+    # normalized form. The accents can't come back -- their marks are gone.
+    recomposed = unicodedata.normalize("NFC", without_accents)
+    lowered = recomposed.lower().replace("&", " and ")
+
+    characters = [char if char.isalnum() else " " for char in lowered]
+    return " ".join("".join(characters).split())
+
+
+def search_matches(query: str, haystack: str) -> bool:
+    """Whether a search query should be considered a hit against some text.
+
+    Substring semantics, matching what the library autocomplete has always
+    done -- only on normalized text, so punctuation and case stop mattering.
+    The second comparison strips spaces as well, which is what lets "acdc"
+    find "AC/DC" and "rocknroll" find "Rock N Roll".
+    """
+    normalized_query = normalize_for_search(query)
+    if not normalized_query:
+        return False
+    normalized_haystack = normalize_for_search(haystack)
+    if normalized_query in normalized_haystack:
+        return True
+    return normalized_query.replace(" ", "") in normalized_haystack.replace(" ", "")
+
+
+def searchable_song_text(file_path: str) -> str:
+    """The part of a song's path worth matching a search against.
+
+    Drops the YouTube ID and the file extension. Neither is something a guest
+    means to search for, and an ID that happens to share a few characters with
+    the query produces hits nobody can explain.
+    """
+    stem = os.path.splitext(file_path)[0]
+    suffix = youtube_id_suffix(file_path)
+    if suffix:
+        stem = stem[: -len(suffix)]
+    return stem

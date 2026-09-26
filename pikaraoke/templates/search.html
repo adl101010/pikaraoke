@@ -337,10 +337,25 @@
 					return '<div class="optgroup-header">' + escape(data.label) + "</div>";
 				},
 			},
+			// The server decides what matches, so don't filter again here.
+			// Selectize's own scoring compares the raw text, so it scored
+			// "dont stop believin" against "Don't Stop Believin'" as zero and
+			// hid the very result the server had just found.
+			score: function () {
+				return function () {
+					return 1;
+				};
+			},
 			load: function (query, callback) {
 				if (query.length < 2) return callback;
+				// Options from previous keystrokes are dropped first: nothing is
+				// filtering them out any more, so they would otherwise pile up
+				// and show results for what the guest used to be typing.
+				this.clearOptions();
 				$.ajax({
-					url: "{{ url_for('search.autocomplete') }}" + "?q=" + query,
+					// Encoded, or an "&" in a title ends the query string early
+					// and the server sees a truncated search.
+					url: "{{ url_for('search.autocomplete') }}" + "?q=" + encodeURIComponent(query),
 					type: "get",
 					success: function (data) {
 						callback(data);

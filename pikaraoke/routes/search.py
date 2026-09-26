@@ -10,6 +10,7 @@ from flask_smorest import Blueprint
 from marshmallow import Schema, fields
 
 from pikaraoke.lib.current_app import get_client_ip, get_karaoke_instance, get_site_name
+from pikaraoke.lib.metadata_parser import search_matches, searchable_song_text
 from pikaraoke.lib.youtube_dl import get_search_results, get_stream_url
 
 _ = flask_babel.gettext
@@ -68,10 +69,10 @@ def search():
 def autocomplete(query):
     """Search available songs for autocomplete."""
     k = get_karaoke_instance()
-    q = query["q"].lower()
+    q = query["q"]
     result = []
     for each in k.song_manager.songs:
-        if q in each.lower():
+        if search_matches(q, searchable_song_text(each)):
             result.append(
                 {
                     "path": each,
