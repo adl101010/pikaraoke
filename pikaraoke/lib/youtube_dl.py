@@ -212,7 +212,14 @@ def get_search_results(query: str) -> list[list[str]]:
     """
     logging.info(f"Searching YouTube for: {query}")
     num_results = 10
-    yt_search = f'ytsearch{num_results}:"{query}"'
+    # Unquoted deliberately. Everything after the colon is already taken as one
+    # query, so quotes add nothing for multi-word searches -- they reach YouTube
+    # as its exact-phrase operator instead. Since the route appends "karaoke",
+    # searching "when i was" asked for the literal phrase "when i was karaoke",
+    # which nothing contains, and YouTube answered with unrelated filler rather
+    # than Bruno Mars. Partial titles are how people search at a party, so this
+    # broke the common case.
+    yt_search = f"ytsearch{num_results}:{query}"
     cmd = yt_dlp_cmd + ["-j", "--no-playlist", "--flat-playlist", yt_search]
     logging.debug(f"yt-dlp search command: {' '.join(cmd)}")
     try:

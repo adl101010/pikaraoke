@@ -8,6 +8,7 @@ import pytest
 
 from pikaraoke.lib.youtube_dl import (
     build_ytdl_download_command,
+    get_search_results,
     get_youtube_id_from_url,
     get_youtubedl_build,
     get_youtubedl_version,
@@ -364,3 +365,58 @@ class TestGetYoutubedlBuild:
             "pikaraoke.lib.youtube_dl.get_youtubedl_version", return_value="2026.08.16.020253"
         ):
             assert get_youtubedl_build() == "nightly"
+
+
+class TestSearchQueryIsNotQuoted:
+    """The search term must reach YouTube unquoted.
+
+    Quotes are YouTube's exact-phrase operator, not a way of grouping words.
+    Since the route appends "karaoke" to whatever the guest typed, a quoted
+    search for "when i was" asked YouTube for the literal phrase "when i was
+    karaoke" -- which nothing contains, so it answered with unrelated filler
+    instead of the song. Partial titles are how people search at a party, so
+    quoting broke the common case.
+    """
+
+    def _search_term(self, mock_check_output, query):
+        mock_check_output.return_value = b""
+        get_search_results(query)
+        cmd = mock_check_output.call_args[0][0]
+        return next(arg for arg in cmd if arg.startswith("ytsearch"))
+
+    @patch("pikaraoke.lib.youtube_dl.subprocess.check_output")
+    def test_the_query_carries_no_quotes(self, mock_check_output):
+        term = self._search_term(mock_check_output, "when i was karaoke")
+        assert '"' not in term
+        assert term == "ytsearch10:when i was karaoke"
+
+    @pytest.mark.parametrize(
+        "query",
+        [
+            "when i was karaoke",
+            "dont stop believin karaoke",
+            "bohemian rhapsody karaoke",
+            "AC/DC thunderstruck karaoke",
+            "Beyonce karaoke",
+            "99 problems karaoke",
+        ],
+    )
+    @patch("pikaraoke.lib.youtube_dl.subprocess.check_output")
+    def test_queries_pass_through_verbatim(self, mock_check_output, query):
+        """Everything after the colon is already one query; don't reshape it."""
+        assert self._search_term(mock_check_output, query) == f"ytsearch10:{query}"
+
+    @patch("pikaraoke.lib.youtube_dl.subprocess.check_output")
+    def test_a_guest_can_still_ask_for_an_exact_phrase(self, mock_check_output):
+        """Quotes the guest typed are theirs to keep -- we just add none."""
+        term = self._search_term(mock_check_output, '"exact phrase" karaoke')
+        assert term == 'ytsearch10:"exact phrase" karaoke'
+
+    @patch("pikaraoke.lib.youtube_dl.subprocess.check_output")
+    def test_results_are_parsed_from_the_output(self, mock_check_output):
+        mock_check_output.return_value = (
+            b'{"title": "Song A", "url": "http://a", "id": "aaaaaaaaaaa",'
+            b' "channel": "Chan", "duration": 125}\n'
+        )
+        results = get_search_results("anything")
+        assert results == [["Song A", "http://a", "aaaaaaaaaaa", "Chan", "2:05"]]
