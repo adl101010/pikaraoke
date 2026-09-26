@@ -146,6 +146,25 @@ class KaraokeDatabase:
             ).fetchone()
             return row[0] if row else None
 
+    def get_song_by_youtube_id(self, youtube_id: str) -> str | None:
+        """The stored path for a YouTube video already in the library, if any.
+
+        Used to skip a download the library already has. IDs are populated from
+        the filename by the library scan, so this works on songs downloaded
+        long before the check existed, with no backfill.
+
+        The comparison is case-sensitive, which it must be: YouTube IDs are,
+        so "dQw4w9WgXcQ" and "dqw4w9wgxcq" are different videos.
+        """
+        if not youtube_id:
+            return None
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT file_path FROM songs WHERE youtube_id = ? LIMIT 1",
+                (youtube_id,),
+            ).fetchone()
+        return row["file_path"] if row else None
+
     def get_play_counts(self) -> dict[str, int]:
         """Return a map of file_path -> play_count for every song in the library."""
         with self._lock:
