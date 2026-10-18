@@ -48,7 +48,17 @@
       // {# MSG: Confirmation dialog when expanding the filesystem on Raspberry Pi, which triggers a reboot. #}
       confirmExpandFilesystem: {{ _("Are you sure you want to expand the filesystem? This will reboot your raspberry pi.") | tojson }},
       // {# MSG: Generic error prefix shown before an error message. #}
-      errorLabel: {{ _("Error") | tojson }}
+      errorLabel: {{ _("Error") | tojson }},
+      // {# MSG: Label above the total time of the songs waiting in the queue. #}
+      queueTimeLabel: {{ _("In the queue") | tojson }},
+      // {# MSG: Label beside the total time of all songs in the queue, e.g. "10 songs - total". #}
+      queueTotalLabel: {{ _("total") | tojson }},
+      // {# MSG: Singular song count shown beside the queue's total time. #}
+      songCountOne: {{ _("1 song") | tojson }},
+      // {# MSG: Plural song count shown beside the queue's total time. SONG_COUNT is replaced with a number like 10. #}
+      songCountMany: {{ _("SONG_COUNT songs") | tojson }},
+      // {# MSG: Tooltip on a queue total ending in "+": some songs' lengths aren't known yet, so the real total is longer. #}
+      queueTotalIncomplete: {{ _("Some songs' lengths aren't known yet, so this is a minimum.") | tojson }}
     };
 
     function generateRandomString(length) {
@@ -95,6 +105,55 @@
     // stored-XSS sink.
     function escapeHtml(str) {
       return $("<div>").text(str == null ? "" : str).html();
+    }
+
+    // Whole seconds as "42m 18s", "1h 34m 41s" past an hour, or "45s" under a minute.
+    function formatDuration(seconds) {
+      seconds = Math.max(0, Math.round(Number(seconds) || 0));
+      var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+      var h = Math.floor(seconds / 3600);
+      var m = Math.floor((seconds % 3600) / 60);
+      var s = seconds % 60;
+      if (h) return h + "h " + pad(m) + "m " + pad(s) + "s";
+      if (m) return m + "m " + pad(s) + "s";
+      return s + "s";
+    }
+
+    // One song's length as "4:34", or "1:02:03" for the rare song over an hour.
+    function formatSongLength(seconds) {
+      seconds = Math.max(0, Math.round(Number(seconds) || 0));
+      var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+      var h = Math.floor(seconds / 3600);
+      var m = Math.floor((seconds % 3600) / 60);
+      var s = seconds % 60;
+      return h ? h + ":" + pad(m) + ":" + pad(s) : m + ":" + pad(s);
+    }
+
+    // What a queue adds up to. A song whose length isn't known yet is counted but
+    // adds nothing, so the total is honest about being a minimum.
+    function summarizeQueue(queue) {
+      var seconds = 0;
+      var unknown = 0;
+      queue.forEach(function (item) {
+        if (typeof item.duration === "number" && item.duration > 0) {
+          seconds += item.duration;
+        } else {
+          unknown++;
+        }
+      });
+      return { songs: queue.length, seconds: seconds, unknown: unknown };
+    }
+
+    function formatSongCount(count) {
+      return count === 1
+        ? window.translations.songCountOne
+        : window.translations.songCountMany.replace("SONG_COUNT", count);
+    }
+
+    // "42m 18s", with a "+" when some songs aren't counted. Empty when no length is known.
+    function formatQueueTotal(summary) {
+      if (summary.seconds <= 0) return "";
+      return formatDuration(summary.seconds) + (summary.unknown ? "+" : "");
     }
 
     function showNotification(message, categoryClass, timeout=3000) {

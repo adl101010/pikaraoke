@@ -54,6 +54,7 @@
         }
 
         $("#auto-refresh").html(window.queuePage_generateHTML());
+        window.queuePage_renderTotal();
         window.queuePageState.previousQueue = newQueue;
         window.queuePageState.previousNowPlaying = newNowPlaying;
 
@@ -137,6 +138,36 @@
   };
 
   // Generate now-playing row HTML
+  // Songs this long or longer are highlighted, so the one eating the evening stands out.
+  var LONG_SONG_SECONDS = 360;
+
+  // A song's own length, right-aligned. Nothing when it isn't known yet, since a
+  // placeholder would read as a broken row rather than a missing figure.
+  function generateLengthLabel(seconds) {
+    if (typeof seconds !== "number" || seconds <= 0) {
+      return "";
+    }
+    var tone = seconds >= LONG_SONG_SECONDS ? "has-text-warning" : "has-text-grey-light";
+    return '<span class="is-size-7 ml-3 ' + tone + '" style="flex: none; white-space: nowrap;">'
+      + formatSongLength(seconds) + '</span>';
+  }
+
+  // The pinned total. Hidden when there is nothing to add up.
+  window.queuePage_renderTotal = function() {
+    var summary = summarizeQueue(window.queuePageState.queue);
+    var time = formatQueueTotal(summary);
+    var bar = $("#queue-total-bar");
+    if (summary.songs === 0 || !time) {
+      bar.addClass("is-hidden");
+      return;
+    }
+    $("#queue-total-label").text(formatSongCount(summary.songs) + " · " + window.translations.queueTotalLabel);
+    $("#queue-total-time")
+      .text(time)
+      .attr("title", summary.unknown ? window.translations.queueTotalIncomplete : "");
+    bar.removeClass("is-hidden");
+  };
+
   function generateNowPlayingRow(np) {
     var iconSrc = np.is_paused
       ? '{{ url_for("static", filename="images/now-playing.png") }}'
@@ -152,11 +183,14 @@
     }
 
     html += '<td style="padding: 8px 10px; vertical-align: middle;">';
-    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
+    html += '<div class="is-flex is-align-items-center is-justify-content-space-between">';
+    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline" style="flex: 1; min-width: 0;">';
     html += '<span class="has-text-success">' + escapeHtml(np.now_playing_user) + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
     html += '<span class="has-text-weight-bold has-text-success is-hidden-mobile">' + escapeHtml(np.now_playing) + '</span>';
     html += '<span class="is-size-7 has-text-weight-bold has-text-success is-hidden-tablet" style="width: 100%;">' + escapeHtml(np.now_playing) + '</span>';
+    html += '</div>';
+    html += generateLengthLabel(np.now_playing_duration);
     html += '</div></td>';
 
     if (isAdmin) {
@@ -301,11 +335,14 @@
     }
 
     html += '<td style="padding: 8px 10px; vertical-align: middle;">';
-    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline">';
+    html += '<div class="is-flex is-align-items-center is-justify-content-space-between">';
+    html += '<div class="is-flex is-flex-wrap-wrap is-align-items-baseline" style="flex: 1; min-width: 0;">';
     html += '<span class="has-text-success">' + escapeHtml(e.user) + '</span>';
     html += '<span class="is-hidden-mobile has-text-grey mx-2">&bull;</span>';
     html += '<span class="has-text-weight-bold is-hidden-mobile">' + escapeHtml(e.title) + '</span>';
     html += '<span class="is-size-7 has-text-weight-bold is-hidden-tablet" style="width: 100%;">' + escapeHtml(e.title) + '</span>';
+    html += '</div>';
+    html += generateLengthLabel(e.duration);
     html += '</div></td>';
 
     if (isAdmin) {
@@ -496,6 +533,17 @@
 
 <table class="table is-striped" id="auto-refresh" style="margin-bottom: 30px">
 </table>
+
+{# Pinned to the bottom of the screen while the list scrolls, so the total stays in
+   view however long the queue is. Colours come from the active theme's variables. #}
+<div
+	id="queue-total-bar"
+	class="is-hidden is-flex is-justify-content-space-between is-align-items-baseline px-4 py-3"
+	style="position: sticky; bottom: 10px; z-index: 5; margin-bottom: 20px; border-radius: 10px; background: var(--dark-bg-secondary); border: 1px solid var(--dark-border-light); box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.25)"
+>
+	<span id="queue-total-label" class="has-text-grey-light"></span>
+	<span id="queue-total-time" class="has-text-success is-size-5"></span>
+</div>
 
 {% if admin %}
 <div class="is-flex is-justify-content-space-between is-align-items-center mb-3">

@@ -63,7 +63,26 @@
 		$.get('{{ url_for("queue.get_queue") }}', function (data) {
 			lastQueue = JSON.parse(data);
 			renderActiveSingers();
+			renderQueueTotal();
 		});
+	}
+
+	// How long everything waiting will take, so a glance says whether to settle in.
+	function renderQueueTotal() {
+		var summary = summarizeQueue(lastQueue);
+		var time = formatQueueTotal(summary);
+		// Nothing queued, or nothing measured yet: a count with no time would be noise.
+		if (summary.songs === 0 || !time) {
+			$("#queue-total").addClass("is-hidden");
+			return;
+		}
+		$("#queue-total-label").text(
+			window.translations.queueTimeLabel + " · " + formatSongCount(summary.songs)
+		);
+		$("#queue-total-time")
+			.text(time)
+			.attr("title", summary.unknown ? window.translations.queueTotalIncomplete : "");
+		$("#queue-total").removeClass("is-hidden");
 	}
 
 	function renderActiveSingers() {
@@ -420,6 +439,14 @@
 <hr />
 <h3>{# MSG: Title for the section displaying the next song to be played. #} {% trans %}Next Song{% endtrans %}</h3>
 <p id="up-next" class="has-text-warning"></p>
+<div
+	id="queue-total"
+	class="is-hidden is-flex is-justify-content-space-between is-align-items-baseline mt-3 pt-3"
+	style="border-top: 1px solid var(--dark-border)"
+>
+	<span id="queue-total-label" class="has-text-grey-light"></span>
+	<span id="queue-total-time" class="has-text-success"></span>
+</div>
 <hr />
 
 <div class="has-background-black-bis box control-box" style="max-width: 500px; display: none">
