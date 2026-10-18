@@ -27,6 +27,7 @@ class QueueManager:
         filename_from_path: Callable[[str, bool], str] | None = None,
         get_available_songs: Callable[[], Any] | None = None,
         get_now_playing_device: Callable[[], str | None] | None = None,
+        get_duration: Callable[[str], int | None] | None = None,
     ) -> None:
         self.queue: list[dict[str, Any]] = []
         self._preferences = preferences
@@ -35,6 +36,7 @@ class QueueManager:
         self._filename_from_path = filename_from_path
         self._get_available_songs = get_available_songs
         self._get_now_playing_device = get_now_playing_device
+        self._get_duration = get_duration
 
     @property
     def public_queue(self) -> list[dict[str, Any]]:
@@ -78,6 +80,20 @@ class QueueManager:
             now_playing = self._get_now_playing_user() if self._get_now_playing_user else None
             count += 1 if now_playing == user else 0
         return count >= limit
+
+    def _lookup_duration(self, song_path: str) -> int | None:
+        """A song's length for the queue's running total, or None if unknown.
+
+        Never allowed to stop a song being queued: the total is a convenience,
+        and a file that can't be measured is still a file that can be sung.
+        """
+        if not self._get_duration:
+            return None
+        try:
+            return self._get_duration(song_path)
+        except Exception as e:  # pylint: disable=broad-except
+            logging.warning(f"Could not read the length of {song_path}: {e}")
+            return None
 
     def _resolve_title(self, song_path: str) -> str:
         """Get a display title from a song path."""
@@ -155,6 +171,7 @@ class QueueManager:
             "title": title,
             "semitones": semitones,
             "device_id": device_id,
+            "duration": self._lookup_duration(song_path),
         }
         if add_to_front:
             # MSG: Message shown after the song is added to the top of the queue

@@ -6,6 +6,7 @@ import os
 import re
 from collections.abc import Callable
 
+from pikaraoke.lib.ffmpeg import get_media_duration
 from pikaraoke.lib.get_platform import is_windows
 from pikaraoke.lib.karaoke_database import KaraokeDatabase
 from pikaraoke.lib.library_scanner import build_song_record
@@ -69,6 +70,34 @@ class SongManager:
         """Extract display name from path, respecting the enable_title_tidy preference."""
         tidy = self._get_title_tidy() if self._get_title_tidy else True
         return self.filename_from_path(file_path, remove_youtube_id=remove_youtube_id, tidy=tidy)
+
+    def get_duration(self, file_path: str) -> int | None:
+        """A song's length in seconds, measured once and then remembered.
+
+        Reading it is cheap, but doing it on every request isn't free, and the
+        queue asks about the same popular songs again and again -- so the first
+        answer is saved on the song's own row.
+
+        Returns None when the length isn't known, which callers must treat as
+        "unknown" rather than zero.
+        """
+        saved = self._db.get_song_duration(file_path)
+        if saved is not None:
+            return saved
+        # Zipped karaoke is only unpacked at play time, so probing the archive
+        # would just fail. Its length is saved when it first plays instead.
+        if os.path.splitext(file_path)[1].casefold() == ".zip":
+            return None
+        seconds = get_media_duration(file_path)
+        if not seconds:
+            return None
+        self._db.set_song_duration(file_path, seconds)
+        return seconds
+
+    def remember_duration(self, file_path: str, seconds: int | None) -> None:
+        """Save a length learned during playback, such as that of a zipped song."""
+        if file_path and seconds:
+            self._db.set_song_duration(file_path, seconds)
 
     def _is_within_download_path(self, path: str) -> bool:
         """Check a path resolves inside download_path, defeating '..'/symlink escapes."""

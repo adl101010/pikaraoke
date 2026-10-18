@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS songs (
     last_enrichment_attempt TEXT,
     play_count INTEGER NOT NULL DEFAULT 0,
     last_played_at TEXT,
+    duration INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -106,6 +107,9 @@ class KaraokeDatabase:
                 )
             if "last_played_at" not in columns:
                 self._conn.execute("ALTER TABLE songs ADD COLUMN last_played_at TEXT")
+            # NULL means "not measured yet", which is not the same as zero seconds.
+            if "duration" not in columns:
+                self._conn.execute("ALTER TABLE songs ADD COLUMN duration INTEGER")
 
         # Plays recorded before device tracking existed keep a NULL device_id --
         # they can't be attributed retroactively, so per-device stats start here.
@@ -145,6 +149,25 @@ class KaraokeDatabase:
                 "SELECT format FROM songs WHERE file_path = ?", (file_path,)
             ).fetchone()
             return row[0] if row else None
+
+    def get_song_duration(self, file_path: str) -> int | None:
+        """The saved length of a song in seconds, or None if it hasn't been measured."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT duration FROM songs WHERE file_path = ?", (file_path,)
+            ).fetchone()
+        return row["duration"] if row else None
+
+    def set_song_duration(self, file_path: str, seconds: int) -> None:
+        """Save a song's length so it only ever has to be measured once.
+
+        A path that isn't in the library is ignored rather than inserted: this
+        is a cache for songs we already know about, not a way to add them.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE songs SET duration = ? WHERE file_path = ?", (int(seconds), file_path)
+            )
 
     def get_song_by_youtube_id(self, youtube_id: str) -> str | None:
         """The stored path for a YouTube video already in the library, if any.

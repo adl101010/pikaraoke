@@ -265,6 +265,9 @@ class Karaoke:
         )
         self.events.on("now_playing_update", self.update_now_playing_socket)
         self.events.on("playback_started", self.update_now_playing_socket)
+        # Zipped karaoke can't be measured until it's unpacked for playback, so
+        # the first play is when its length becomes known for the queue total.
+        self.events.on("playback_started", self._remember_now_playing_duration)
         self.events.on("song_ended", self.update_now_playing_socket)
         self.events.on("skip_requested", lambda: self.playback_controller.skip(False))
         self.events.on("song_downloaded", self.song_manager.register_download)
@@ -293,6 +296,7 @@ class Karaoke:
             filename_from_path=self.song_manager.display_name_from_path,
             get_available_songs=lambda: self.song_manager.songs,
             get_now_playing_device=lambda: self.playback_controller.now_playing_device,
+            get_duration=self.song_manager.get_duration,
         )
 
         # Initialize and start download manager
@@ -588,6 +592,18 @@ class Karaoke:
             "next_user": next_song["user"] if next_song else None,
             "volume": self.volume,
         }
+
+    def _remember_now_playing_duration(self) -> None:
+        """Save the length of the song that just started, for the queue's total.
+
+        Zipped karaoke can't be measured until it is unpacked for playback, so
+        the first play is when its length becomes known. Every other song was
+        already measured when it was queued; saving it again changes nothing.
+        """
+        self.song_manager.remember_duration(
+            self.playback_controller.now_playing_filename,
+            self.playback_controller.now_playing_duration,
+        )
 
     def update_now_playing_socket(self) -> None:
         """Emit now_playing state change via SocketIO."""
