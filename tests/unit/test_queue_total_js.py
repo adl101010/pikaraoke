@@ -21,6 +21,10 @@ BASE_HTML = Path(__file__).resolve().parents[2] / "pikaraoke" / "templates" / "b
 START = "// Whole seconds as"
 END = "function showNotification"
 
+# Now-playing payloads, as /now_playing returns them, for the your-turn cases.
+PLAYING = "{now_playing:'Bohemian Rhapsody',now_playing_is_mine:false,is_paused:false}"
+MINE_PLAYING = "{now_playing:'Bohemian Rhapsody',now_playing_is_mine:true,is_paused:false}"
+
 RUNTIME = shutil.which("node") or shutil.which("deno")
 pytestmark = pytest.mark.skipif(RUNTIME is None, reason="needs Node or Deno to run the helpers")
 
@@ -93,6 +97,171 @@ CASES = [
     ("formatSongCount", "1", "1 song"),
     ("formatSongCount", "2", "2 songs"),
     ("formatSongCount", "10", "10 songs"),
+    # computeYourTurn(queue, nowPlaying, secondsLeftOfCurrentSong)
+    # Not queued at all: no card.
+    (
+        "computeYourTurn",
+        f"[{{user:'Sam',duration:100,mine:false}}], {PLAYING}, 60",
+        {"state": "none"},
+    ),
+    ("computeYourTurn", "[], null, null", {"state": "none"}),
+    # Singing right now: who's after you, nothing else.
+    (
+        "computeYourTurn",
+        f"[{{user:'Sam',mine:false}}], {MINE_PLAYING}, 60",
+        {"state": "now", "nextUser": "Sam", "nextIsMine": False},
+    ),
+    (
+        "computeYourTurn",
+        f"[], {MINE_PLAYING}, 60",
+        {"state": "now", "nextUser": None, "nextIsMine": False},
+    ),
+    # Now-playing beats the queue: a second song of yours waiting doesn't change "you're on",
+    # but the card says it's you again rather than naming you to yourself.
+    (
+        "computeYourTurn",
+        f"[{{user:'Liv',title:'B',duration:200,mine:true}}], {MINE_PLAYING}, 60",
+        {"state": "now", "nextUser": "Liv", "nextIsMine": True},
+    ),
+    # Two songs queued ahead, plus what's left of the one playing.
+    (
+        "computeYourTurn",
+        f"[{{duration:100}},{{duration:200}},{{title:'Mine',duration:250,mine:true}},{{title:'Later',mine:true}}], {PLAYING}, 60",
+        {
+            "state": "ahead",
+            "songsAhead": 3,
+            "seconds": 360,
+            "unknown": 0,
+            "playing": True,
+            "paused": False,
+            "title": "Mine",
+            "more": 1,
+        },
+    ),
+    # First in the queue while a song plays: next, after what's left of it.
+    (
+        "computeYourTurn",
+        f"[{{title:'Mine',duration:250,mine:true}}], {PLAYING}, 90",
+        {
+            "state": "next",
+            "songsAhead": 1,
+            "seconds": 90,
+            "unknown": 0,
+            "playing": True,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # First in the queue with nothing playing: next, starting any moment.
+    (
+        "computeYourTurn",
+        "[{title:'Mine',duration:250,mine:true}], {now_playing:null}, null",
+        {
+            "state": "next",
+            "songsAhead": 0,
+            "seconds": 0,
+            "unknown": 0,
+            "playing": False,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # Nothing playing but one song ahead: that one goes first, so you're NOT next.
+    (
+        "computeYourTurn",
+        "[{duration:100},{title:'Mine',mine:true}], null, null",
+        {
+            "state": "ahead",
+            "songsAhead": 1,
+            "seconds": 100,
+            "unknown": 0,
+            "playing": False,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # The playing song's length isn't known: counted, flagged as a minimum.
+    (
+        "computeYourTurn",
+        f"[{{duration:100}},{{title:'Mine',mine:true}}], {PLAYING}, null",
+        {
+            "state": "ahead",
+            "songsAhead": 2,
+            "seconds": 100,
+            "unknown": 1,
+            "playing": True,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # A song ahead with no known length.
+    (
+        "computeYourTurn",
+        f"[{{duration:null}},{{duration:100}},{{title:'Mine',mine:true}}], {PLAYING}, 30",
+        {
+            "state": "ahead",
+            "songsAhead": 3,
+            "seconds": 130,
+            "unknown": 1,
+            "playing": True,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # Paused: same numbers, flagged.
+    (
+        "computeYourTurn",
+        "[{duration:100},{title:'Mine',mine:true}], {now_playing:'X',is_paused:true}, 45",
+        {
+            "state": "ahead",
+            "songsAhead": 2,
+            "seconds": 145,
+            "unknown": 0,
+            "playing": True,
+            "paused": True,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # Someone else's song with the same name is not yours: only `mine` counts.
+    (
+        "computeYourTurn",
+        f"[{{user:'Liv',title:'Theirs',duration:100,mine:false}},{{user:'Liv',title:'Mine',mine:true}}], {PLAYING}, 10",
+        {
+            "state": "ahead",
+            "songsAhead": 2,
+            "seconds": 110,
+            "unknown": 0,
+            "playing": True,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # A fraction of a second left is rounded, not shown as 3.4s.
+    (
+        "computeYourTurn",
+        f"[{{title:'Mine',mine:true}}], {PLAYING}, 3.4",
+        {
+            "state": "next",
+            "songsAhead": 1,
+            "seconds": 3,
+            "unknown": 0,
+            "playing": True,
+            "paused": False,
+            "title": "Mine",
+            "more": 0,
+        },
+    ),
+    # formatWait: the turn's time, "+" when it's a minimum
+    ("formatWait", "{seconds:656,unknown:0}", "10m 56s"),
+    ("formatWait", "{seconds:395,unknown:1}", "6m 35s+"),
+    ("formatWait", "{seconds:3503,unknown:0}", "58m 23s"),
 ]
 
 
@@ -110,9 +279,9 @@ def results() -> list:
     script = f"""
 const window = {{ translations: {{ songCountOne: "1 song", songCountMany: "SONG_COUNT songs" }} }};
 {_helpers_from_template()}
-const fns = {{ formatDuration, formatSongLength, summarizeQueue, formatQueueTotal, formatSongCount }};
+const fns = {{ formatDuration, formatSongLength, summarizeQueue, formatQueueTotal, formatSongCount, computeYourTurn, formatWait }};
 const cases = {cases};
-const out = cases.map((c) => fns[c.fn](new Function("return " + c.arg)()));
+const out = cases.map((c) => fns[c.fn](...new Function("return [" + c.arg + "]")()));
 console.log(JSON.stringify(out));
 """
     with tempfile.TemporaryDirectory() as tmp:
@@ -143,5 +312,8 @@ def test_the_helpers_are_still_where_the_test_expects():
         "summarizeQueue",
         "formatQueueTotal",
         "formatSongCount",
+        "computeYourTurn",
+        "formatWait",
+        "renderYourTurn",
     ):
         assert re.search(rf"function {name}\(", text), name

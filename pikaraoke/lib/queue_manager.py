@@ -48,6 +48,18 @@ class QueueManager:
         """
         return [{k: v for k, v in item.items() if k != "device_id"} for item in self.queue]
 
+    def public_queue_for(self, device_id: str) -> list[dict[str, Any]]:
+        """public_queue, with each entry marked as the asking device's or not.
+
+        Lets a guest's page work out how long until their own song without
+        ever being shown anyone's device ID -- the same answer the server
+        gives for "is the song playing now mine".
+        """
+        return [
+            {**public, "mine": bool(device_id) and item.get("device_id") == device_id}
+            for public, item in zip(self.public_queue, self.queue)
+        ]
+
     def is_song_in_queue(self, song_path: str) -> bool:
         """Check if a song is already in the queue."""
         return any(item["file"] == song_path for item in self.queue)

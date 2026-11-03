@@ -71,9 +71,9 @@ def queue():
 
 @queue_bp.route("/get_queue")
 def get_queue():
-    """Get the current song queue."""
+    """Get the current song queue, with this device's own songs marked."""
     k = get_karaoke_instance()
-    return json.dumps(k.queue_manager.public_queue)
+    return json.dumps(k.queue_manager.public_queue_for(get_device_id()))
 
 
 @queue_bp.route("/queue/addrandom/<int:amount>", methods=["GET"])

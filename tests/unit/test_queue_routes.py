@@ -167,19 +167,25 @@ class TestQueueApiContract:
     The queue and home pages depend on these endpoints returning specific fields.
     """
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    def test_get_queue_returns_required_fields(self, mock_get_instance, client):
+    @pytest.fixture
+    def real_queue(self, tmp_path):
+        """A real QueueManager behind /get_queue, so these tests check what it really serves."""
+        qm = QueueManager(
+            preferences=PreferenceManager(config_file_path=str(tmp_path / "config.ini")),
+            events=EventSystem(),
+            get_now_playing_user=lambda: None,
+            filename_from_path=lambda path, *args: path.split("/")[-1].split(".")[0],
+            get_available_songs=lambda: [],
+            get_duration=lambda path: 200,
+        )
+        karaoke = MagicMock()
+        karaoke.queue_manager = qm
+        with patch("pikaraoke.routes.queue.get_karaoke_instance", return_value=karaoke):
+            yield qm
+
+    def test_get_queue_returns_required_fields(self, real_queue, client):
         """GET /get_queue must return all fields the frontend expects."""
-        mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager.public_queue = [
-            {
-                "user": "TestUser",
-                "file": "/songs/Artist - Song---abc123.mp4",
-                "title": "Artist - Song",
-                "semitones": 0,
-            }
-        ]
-        mock_get_instance.return_value = mock_karaoke
+        real_queue.enqueue("/songs/Artist - Song---abc123.mp4", "TestUser", device_id="phone-a")
 
         response = client.get("/get_queue")
 
@@ -187,43 +193,54 @@ class TestQueueApiContract:
         data = json.loads(response.data)
         assert isinstance(data, list)
         assert len(data) == 1
-        # Verify all required fields are present
-        item = data[0]
-        assert "user" in item
-        assert "file" in item
-        assert "title" in item
-        assert "semitones" in item
+        for field in ("user", "file", "title", "semitones", "duration", "mine"):
+            assert field in data[0], field
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    def test_get_queue_serves_the_public_view_not_the_raw_queue(self, mock_get_instance, client):
+    def test_get_queue_serves_the_public_view_not_the_raw_queue(self, real_queue, client):
         """Guards the device token: /get_queue must never serialize raw queue items."""
-        mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager.queue = [
-            {"user": "Alice", "file": "/a.mp4", "title": "A", "semitones": 0, "device_id": "secret"}
-        ]
-        mock_karaoke.queue_manager.public_queue = [
-            {"user": "Alice", "file": "/a.mp4", "title": "A", "semitones": 0}
-        ]
-        mock_get_instance.return_value = mock_karaoke
+        real_queue.enqueue("/songs/a.mp4", "Alice", device_id="secret-token")
+        client.set_cookie("device_id", "secret-token")
 
         response = client.get("/get_queue")
 
         assert response.status_code == 200
-        assert b"secret" not in response.data
+        assert b"secret-token" not in response.data
         assert "device_id" not in json.loads(response.data)[0]
 
-    @patch("pikaraoke.routes.queue.get_karaoke_instance")
-    def test_get_queue_empty_returns_empty_array(self, mock_get_instance, client):
+    def test_get_queue_empty_returns_empty_array(self, real_queue, client):
         """GET /get_queue must return empty array when queue is empty."""
-        mock_karaoke = MagicMock()
-        mock_karaoke.queue_manager.public_queue = []
-        mock_get_instance.return_value = mock_karaoke
-
         response = client.get("/get_queue")
 
         assert response.status_code == 200
-        data = json.loads(response.data)
-        assert data == []
+        assert json.loads(response.data) == []
+
+    def test_get_queue_marks_only_the_asking_devices_songs(self, real_queue, client):
+        """The your-turn card finds the guest's own songs from this flag."""
+        real_queue.enqueue("/songs/a.mp4", "Alice", device_id="phone-a")
+        real_queue.enqueue("/songs/b.mp4", "Bob", device_id="phone-b")
+        real_queue.enqueue("/songs/c.mp4", "Alice", device_id="phone-a")
+        client.set_cookie("device_id", "phone-a")
+
+        data = json.loads(client.get("/get_queue").data)
+
+        assert [item["mine"] for item in data] == [True, False, True]
+
+    def test_get_queue_goes_by_device_not_by_name(self, real_queue, client):
+        """Typing someone else's name doesn't make their songs yours."""
+        real_queue.enqueue("/songs/a.mp4", "Alice", device_id="phone-a")
+        client.set_cookie("device_id", "phone-impostor")
+
+        data = json.loads(client.get("/get_queue").data)
+
+        assert data[0]["mine"] is False
+
+    def test_get_queue_without_a_device_cookie_claims_nothing(self, real_queue, client):
+        """A first-time visitor has no ID yet, and an empty ID must never match."""
+        real_queue.enqueue("/songs/a.mp4", "Alice", device_id="")
+
+        data = json.loads(client.get("/get_queue").data)
+
+        assert data[0]["mine"] is False
 
 
 def _make_queue_item(n: int) -> dict:

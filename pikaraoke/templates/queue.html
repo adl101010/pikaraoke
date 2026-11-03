@@ -38,6 +38,7 @@
     ).done(function(queueResp, nowPlayingResp) {
       var newQueue = JSON.parse(queueResp[0]);
       var newNowPlaying = nowPlayingResp[0] ? JSON.parse(nowPlayingResp[0]) : null;
+      window.queuePage_syncClock(newNowPlaying);
 
       var queueChanged = !isEqual(newQueue, window.queuePageState.previousQueue);
       var npChanged = !isEqual(newNowPlaying, window.queuePageState.previousNowPlaying);
@@ -72,8 +73,46 @@
           });
         }
       }
+      window.queuePage_renderTurn();
     });
   };
+
+  // Where the current song has got to, for the your-turn countdown. The server
+  // only reports a position when something changes, so it's advanced locally
+  // in between, exactly as the home page's scrubber does.
+  window.queuePageClock = window.queuePageClock || { url: null, position: 0 };
+  window.queuePage_syncClock = function(np) {
+    var clock = window.queuePageClock;
+    if (!np || !np.now_playing) {
+      clock.url = null;
+      clock.position = 0;
+    } else if (np.now_playing_url !== clock.url) {
+      // A new song starts from the top, not where the last one had got to.
+      clock.url = np.now_playing_url;
+      clock.position = np.now_playing_position || 0;
+    } else if (np.now_playing_position != null) {
+      clock.position = np.now_playing_position;
+    }
+  };
+
+  window.queuePage_renderTurn = function() {
+    var np = window.queuePageState.nowPlaying;
+    var duration = np && np.now_playing_duration;
+    var remaining = duration ? duration - window.queuePageClock.position : null;
+    renderYourTurn(document.getElementById("your-turn"), computeYourTurn(window.queuePageState.queue, np, remaining));
+  };
+
+  // SPA navigation re-runs this script on every visit, so drop the previous
+  // timer first or they stack and the countdown runs at double speed.
+  if (window.queueTurnTimer) clearInterval(window.queueTurnTimer);
+  window.queueTurnTimer = setInterval(function() {
+    if (!document.getElementById("your-turn")) return;
+    var np = window.queuePageState.nowPlaying;
+    if (np && np.now_playing && !np.is_paused && np.now_playing_duration) {
+      window.queuePageClock.position = Math.min(window.queuePageClock.position + 1, np.now_playing_duration);
+      window.queuePage_renderTurn();
+    }
+  }, 1000);
 
   window.initSortable = function() {
     var table = document.getElementById('auto-refresh');
@@ -454,6 +493,14 @@
   window.socket.on("queue_update", window.queuePage_getQueue);
   window.socket.off("now_playing");
   window.socket.on("now_playing", window.queuePage_getQueue);
+  // An admin scrubbed: move the countdown with them. Removed by reference so
+  // the home page's own seek handler is left alone.
+  if (window.queueSeekHandler) window.socket.off("seek", window.queueSeekHandler);
+  window.queueSeekHandler = function(position) {
+    window.queuePageClock.position = position;
+    window.queuePage_renderTurn();
+  };
+  window.socket.on("seek", window.queueSeekHandler);
   window.queuePageState.previousQueue = null;
   window.queuePageState.previousNowPlaying = null;
 
@@ -531,6 +578,7 @@
 
 {% block content %}
 
+<div id="your-turn" class="your-turn is-hidden"></div>
 <table class="table is-striped" id="auto-refresh" style="margin-bottom: 30px">
 </table>
 

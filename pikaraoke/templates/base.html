@@ -58,7 +58,29 @@
       // {# MSG: Plural song count shown beside the queue's total time. SONG_COUNT is replaced with a number like 10. #}
       songCountMany: {{ _("SONG_COUNT songs") | tojson }},
       // {# MSG: Tooltip on a queue total ending in "+": some songs' lengths aren't known yet, so the real total is longer. #}
-      queueTotalIncomplete: {{ _("Some songs' lengths aren't known yet, so this is a minimum.") | tojson }}
+      queueTotalIncomplete: {{ _("Some songs' lengths aren't known yet, so this is a minimum.") | tojson }},
+      // {# MSG: Heading of the card telling a guest how long until their own song is sung. #}
+      yourTurnHeading: {{ _("Your next song") | tojson }},
+      // {# MSG: Under the wait time on the your-turn card. SONG_COUNT is replaced with e.g. "3 songs". #}
+      yourTurnAhead: {{ _("until you're up · SONG_COUNT ahead") | tojson }},
+      // {# MSG: Big text on the your-turn card when the guest's song is the next one. #}
+      yourTurnNext: {{ _("You're next!") | tojson }},
+      // {# MSG: Under "You're next!": how long the current song has left. WAIT_TIME is replaced with e.g. "3m 47s". #}
+      yourTurnAfterThis: {{ _("after this song · WAIT_TIME") | tojson }},
+      // {# MSG: Under "You're next!" when nothing is playing, so the guest's song is about to start. #}
+      yourTurnStartingSoon: {{ _("starting soon") | tojson }},
+      // {# MSG: Heading of the your-turn card while the guest's own song is playing. #}
+      yourTurnOnStage: {{ _("On stage") | tojson }},
+      // {# MSG: Big text on the your-turn card while the guest's own song is playing. #}
+      yourTurnOn: {{ _("You're on!") | tojson }},
+      // {# MSG: On the your-turn card while the guest is singing: who sings after them. SINGER is replaced with a name. #}
+      yourTurnNextUp: {{ _("Next up: SINGER") | tojson }},
+      // {# MSG: On the your-turn card while the guest is singing and their own next song follows straight after. #}
+      yourTurnNextUpYou: {{ _("Next up: you again") | tojson }},
+      // {# MSG: Tag on the your-turn card when the host has paused the song, so the countdown has stopped. #}
+      yourTurnPaused: {{ _("Paused") | tojson }},
+      // {# MSG: On the your-turn card when the guest has more songs queued after this one. SONG_COUNT is replaced with a number. #}
+      yourTurnMore: {{ _("+SONG_COUNT more after") | tojson }}
     };
 
     function generateRandomString(length) {
@@ -154,6 +176,85 @@
     function formatQueueTotal(summary) {
       if (summary.seconds <= 0) return "";
       return formatDuration(summary.seconds) + (summary.unknown ? "+" : "");
+    }
+
+    // Where this guest stands: on now, next, some way back, or nothing queued.
+    // `queue` is /get_queue (entries marked `mine`), `np` is /now_playing, and
+    // `remaining` is what's left of the current song in seconds, or null if unknown.
+    // The wait is that remainder plus every song queued ahead; like the queue
+    // total it ignores gaps between songs, so it's a minimum.
+    function computeYourTurn(queue, np, remaining) {
+      var playing = !!(np && np.now_playing);
+      if (playing && np.now_playing_is_mine) {
+        return {
+          state: "now",
+          nextUser: queue.length ? queue[0].user : null,
+          nextIsMine: queue.length ? !!queue[0].mine : false
+        };
+      }
+      var mine = queue.filter(function (item) { return item.mine; });
+      if (!mine.length) return { state: "none" };
+      var index = queue.indexOf(mine[0]);
+      var ahead = queue.slice(0, index);
+      var summary = summarizeQueue(ahead);
+      if (playing) {
+        if (typeof remaining === "number" && remaining >= 0) summary.seconds += Math.round(remaining);
+        else summary.unknown++;
+      }
+      var songsAhead = index + (playing ? 1 : 0);
+      return {
+        // First in the queue means next, whether or not a song is on right now.
+        state: index === 0 ? "next" : "ahead",
+        songsAhead: songsAhead,
+        seconds: summary.seconds,
+        unknown: summary.unknown,
+        playing: playing,
+        paused: playing && !!np.is_paused,
+        title: mine[0].title,
+        more: mine.length - 1
+      };
+    }
+
+    function formatWait(turn) {
+      return formatDuration(turn.seconds) + (turn.unknown ? "+" : "");
+    }
+
+    // Fills `el` with the card for computeYourTurn's result, or hides it.
+    function renderYourTurn(el, turn) {
+      if (!el) return;
+      var t = window.translations;
+      el.classList.remove("is-hidden", "is-next", "is-now");
+      if (turn.state === "none") {
+        el.classList.add("is-hidden");
+        el.innerHTML = "";
+        return;
+      }
+      var heading, big, sub, tag = "", extra = "";
+      if (turn.state === "now") {
+        el.classList.add("is-now");
+        heading = t.yourTurnOnStage;
+        big = t.yourTurnOn;
+        sub = turn.nextIsMine ? t.yourTurnNextUpYou
+          : turn.nextUser ? t.yourTurnNextUp.replace("SINGER", turn.nextUser) : "";
+      } else {
+        if (turn.state === "next") {
+          el.classList.add("is-next");
+          big = t.yourTurnNext;
+          sub = turn.playing ? t.yourTurnAfterThis.replace("WAIT_TIME", formatWait(turn)) : t.yourTurnStartingSoon;
+        } else {
+          big = formatWait(turn);
+          sub = t.yourTurnAhead.replace("SONG_COUNT", formatSongCount(turn.songsAhead));
+        }
+        heading = t.yourTurnHeading;
+        if (turn.paused) tag = '<span class="your-turn-tag">' + escapeHtml(t.yourTurnPaused) + "</span>";
+        extra = '<div class="your-turn-song">' + escapeHtml(turn.title) + "</div>";
+        if (turn.more) extra += '<div class="your-turn-more">' + escapeHtml(t.yourTurnMore.replace("SONG_COUNT", turn.more)) + "</div>";
+      }
+      el.innerHTML =
+        '<div class="your-turn-heading"><span>' + escapeHtml(heading) + "</span>" + tag + "</div>" +
+        '<div class="your-turn-big">' + escapeHtml(big) + "</div>" +
+        (sub ? '<div class="your-turn-sub">' + escapeHtml(sub) + "</div>" : "") +
+        extra;
     }
 
     function showNotification(message, categoryClass, timeout=3000) {

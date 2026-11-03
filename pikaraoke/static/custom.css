@@ -130,3 +130,62 @@ body.hide-cursor * {
   color: var(--dark-text-muted);
   font-size: 0.8rem;
 }
+
+/* "Your next song" card on Home and the Queue page. Colours come from the
+   active theme, so it fits all four. */
+.your-turn {
+  margin: 12px 0;
+  padding: 14px 16px;
+  max-width: 500px;
+  border-radius: 12px;
+  background: var(--dark-bg-secondary);
+  border: 1px solid var(--dark-border-light);
+}
+.your-turn-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dark-text-secondary);
+}
+.your-turn-tag {
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 1px 9px;
+  border-radius: 99px;
+  border: 1px solid var(--dark-border-light);
+}
+.your-turn-big {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  line-height: 1.15;
+  margin: 4px 0 2px;
+  color: var(--dark-success);
+  white-space: nowrap;
+}
+.your-turn-sub {
+  font-size: 0.9rem;
+  color: var(--dark-text-primary);
+}
+.your-turn-song {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--dark-warning);
+}
+.your-turn-more {
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: var(--dark-text-secondary);
+}
+.your-turn.is-next {
+  border: 2px solid var(--dark-warning);
+}
+.your-turn.is-next .your-turn-big {
+  color: var(--dark-warning);
+}
+.your-turn.is-now {
+  border: 2px solid var(--dark-success);
+}

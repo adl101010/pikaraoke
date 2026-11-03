@@ -15,6 +15,7 @@
 	}
 
 	var lastQueue = [];
+	var lastNowPlaying = null;
 	var currentSingerUser = null;
 	// Admins get the skip icon in the player controls instead, so they never
 	// see the self-skip button -- their skip already covers their own songs.
@@ -56,6 +57,7 @@
 		if (!scrubPaused && scrubDuration && !isScrubbing) {
 			scrubPosition = Math.min(scrubPosition + 1, scrubDuration);
 			renderScrubber();
+			renderYourTurnCard();
 		}
 	}, 1000);
 
@@ -64,7 +66,14 @@
 			lastQueue = JSON.parse(data);
 			renderActiveSingers();
 			renderQueueTotal();
+			renderYourTurnCard();
 		});
+	}
+
+	// The countdown rides the scrubber's clock, so the two can never disagree.
+	function renderYourTurnCard() {
+		var remaining = scrubDuration ? scrubDuration - scrubPosition : null;
+		renderYourTurn(document.getElementById("your-turn"), computeYourTurn(lastQueue, lastNowPlaying, remaining));
 	}
 
 	// How long everything waiting will take, so a glance says whether to settle in.
@@ -137,6 +146,8 @@
 		}
 		$("#scrubber-row").toggle(!!np.now_playing && scrubDuration > 0);
 		renderScrubber();
+		lastNowPlaying = np;
+		renderYourTurnCard();
 
 		if (np.now_playing) {
 			// Ownership is decided server-side (the device cookie is HttpOnly), and
@@ -333,6 +344,7 @@
 			if (isScrubbing) return;
 			scrubPosition = position;
 			renderScrubber();
+			renderYourTurnCard();
 		}
 		if (window.homeSeekHandler) {
 			window.socket.off("seek", window.homeSeekHandler);
@@ -447,6 +459,7 @@
 	<span id="queue-total-label" class="has-text-grey-light"></span>
 	<span id="queue-total-time" class="has-text-success"></span>
 </div>
+<div id="your-turn" class="your-turn is-hidden"></div>
 <hr />
 
 <div class="has-background-black-bis box control-box" style="max-width: 500px; display: none">
