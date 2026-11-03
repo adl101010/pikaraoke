@@ -501,6 +501,7 @@ class Karaoke:
         """
         filename = self.playback_controller.now_playing_filename
         user = self.playback_controller.now_playing_user
+        device_id = self.playback_controller.now_playing_device or ""
         now_playing = self.playback_controller.now_playing
 
         if filename is None or user is None:
@@ -508,8 +509,9 @@ class Karaoke:
             return
         # MSG: Message shown after the song is transposed, first is the semitones and then the song name
         self.log_and_send(_("Transposing by %s semitones: %s") % (semitones, now_playing))
-        # Insert the same song at the top of the queue with transposition
-        self.queue_manager.enqueue(filename, user, semitones, True)
+        # Insert the same song at the top of the queue with transposition. It's
+        # still the same singer's song, so it keeps their device.
+        self.queue_manager.enqueue(filename, user, semitones, True, device_id=device_id)
         self.playback_controller.skip(log_action=False)
 
     def volume_change(self, vol_level: float) -> bool:

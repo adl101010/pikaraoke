@@ -207,11 +207,16 @@ class TestDownloadManagerExecuteDownload:
         song_manager.songs.add_if_valid.return_value = True
 
         download_manager._execute_download(
-            "https://youtube.com/watch?v=dQw4w9WgXcQ", True, "TestUser", "Title"
+            "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            True,
+            "TestUser",
+            "Title",
+            device_id="phone-a",
         )
 
+        # Queued as the requesting device's song, not as nobody's.
         queue_manager.enqueue.assert_called_once_with(
-            "/songs/Song---dQw4w9WgXcQ.mp4", "TestUser", log_action=False
+            "/songs/Song---dQw4w9WgXcQ.mp4", "TestUser", log_action=False, device_id="phone-a"
         )
 
     @patch("flask_babel._", side_effect=lambda x: x)
@@ -316,7 +321,9 @@ class TestDownloadManagerAuditLog:
             "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "Grace", "Title", "10.0.0.7"
         )
 
-        audit_log.record.assert_called_once_with("Grace", "Downloaded song", "Title", "10.0.0.7")
+        audit_log.record.assert_called_once_with(
+            "Grace", "Downloaded song", "Title", "10.0.0.7", ""
+        )
 
     @patch("flask_babel._", side_effect=lambda x: x)
     @patch("subprocess.Popen")
@@ -356,6 +363,38 @@ class TestDownloadManagerStatus:
         assert len(status["pending"]) == 2
         assert status["pending"][0]["title"] == "Song 1"
         assert status["pending"][1]["title"] == "Song 2"
+
+    def test_get_downloads_status_never_shows_who_asked(self, download_manager):
+        """Any guest can poll this: a device ID would let them skip as that guest."""
+        download_manager.queue_download(
+            "http://example.com/1", title="Song 1", ip_address="10.0.0.7", device_id="phone-a"
+        )
+
+        pending = download_manager.get_downloads_status()["pending"][0]
+
+        assert pending["title"] == "Song 1"
+        assert "device_id" not in pending
+        assert "ip_address" not in pending
+        # ...while the worker still has them.
+        assert download_manager.pending_downloads[0]["device_id"] == "phone-a"
+
+    def test_the_worker_hands_the_device_to_the_download(self, download_manager):
+        """The request is captured in one greenlet and run in another; nothing may drop it."""
+
+        class StopWorker(BaseException):
+            pass
+
+        download_manager.queue_download(
+            "https://youtube.com/watch?v=abc", enqueue=True, user="Liv", device_id="phone-a"
+        )
+        request = download_manager.download_queue.get_nowait()
+        download_manager.download_queue.get = MagicMock(side_effect=[request, StopWorker()])
+        download_manager._execute_download = MagicMock(return_value=0)
+
+        with pytest.raises(StopWorker):
+            download_manager._process_queue()
+
+        assert download_manager._execute_download.call_args.args[-1] == "phone-a"
 
     def test_get_downloads_status_active(self, download_manager):
         """Test status with active download."""
@@ -453,7 +492,9 @@ class TestDownloadManagerSpecialCharacters:
             title="Test",
         )
 
-        queue_manager.enqueue.assert_called_once_with(file_path, "TestUser", log_action=False)
+        queue_manager.enqueue.assert_called_once_with(
+            file_path, "TestUser", log_action=False, device_id=""
+        )
 
 
 class TestTransientFailureDetection:

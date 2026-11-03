@@ -396,3 +396,29 @@ class TestPlaybackRemembersLength:
         )
         assert 'self.events.on("playback_started", self._remember_now_playing_duration)' in source
         assert "get_duration=self.song_manager.get_duration" in source
+
+
+class TestKeyChangeKeepsTheOwner:
+    def test_a_transposed_song_is_still_the_singers(self):
+        """Changing key re-queues the song; it must stay theirs, or "Skip mine" and
+        the your-turn card stop recognising it mid-song."""
+        from types import SimpleNamespace
+
+        from pikaraoke.karaoke import Karaoke
+
+        queue_manager, playback = MagicMock(), MagicMock()
+        playback.now_playing_filename = "/songs/a.mp4"
+        playback.now_playing_user = "Liv"
+        playback.now_playing_device = "phone-a"
+        playback.now_playing = "A"
+        fake = SimpleNamespace(
+            queue_manager=queue_manager,
+            playback_controller=playback,
+            log_and_send=lambda *args: None,
+        )
+
+        Karaoke.transpose_current(fake, 2)
+
+        queue_manager.enqueue.assert_called_once_with(
+            "/songs/a.mp4", "Liv", 2, True, device_id="phone-a"
+        )

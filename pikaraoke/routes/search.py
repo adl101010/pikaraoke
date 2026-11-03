@@ -119,7 +119,9 @@ def download(form):
         return _use_existing_copy(k, existing, user, queue)
 
     # Queue the download (processed serially by the download worker)
-    k.download_manager.queue_download(song, queue, user, title, ip_address=get_client_ip())
+    k.download_manager.queue_download(
+        song, queue, user, title, ip_address=get_client_ip(), device_id=get_device_id()
+    )
 
     return jsonify({"status": "ok"})
 

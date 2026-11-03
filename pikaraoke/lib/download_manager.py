@@ -27,6 +27,9 @@ MAX_DOWNLOAD_RETRIES = 2
 # waits at most ~45s longer before being told the song isn't coming.
 RETRY_BACKOFF_SECONDS = 15
 
+# Kept on a pending download for the worker, but never shown to guests.
+_PRIVATE_REQUEST_FIELDS = ("ip_address", "device_id")
+
 # Failures worth trying again: YouTube hands out 403s and 429s when it doesn't
 # like the traffic pattern (a party queueing songs in bursts will provoke them),
 # and those usually clear on their own. A missing or private video won't, so
@@ -114,7 +117,12 @@ class DownloadManager:
         """
         return {
             "active": self.active_download,
-            "pending": self.pending_downloads,
+            # Pending requests carry who asked: their IP is private, and their
+            # device ID is what authorizes "Skip mine". Any guest can poll this.
+            "pending": [
+                {k: v for k, v in request.items() if k not in _PRIVATE_REQUEST_FIELDS}
+                for request in self.pending_downloads
+            ],
             "errors": self.download_errors,
         }
 
@@ -138,6 +146,7 @@ class DownloadManager:
         user: str = "Pikaraoke",
         title: str | None = None,
         ip_address: str = "",
+        device_id: str = "",
     ) -> None:
         """Queue a video for download.
 
@@ -150,6 +159,10 @@ class DownloadManager:
             title: Display title (defaults to URL if not provided).
             ip_address: Requesting client's IP, for the audit log. Captured here
                 (not in the worker) since the worker runs outside a request context.
+            device_id: Requesting device, so a song queued once it downloads
+                belongs to whoever asked for it -- for "Skip mine", the
+                per-device queue limit and the your-turn card. Captured here
+                for the same reason as ip_address.
         """
         from flask_babel import _
 
@@ -183,6 +196,7 @@ class DownloadManager:
             "title": title,
             "display_title": displayed_title,
             "ip_address": ip_address,
+            "device_id": device_id,
         }
 
         # Add to the download queue and shadow list
@@ -225,6 +239,7 @@ class DownloadManager:
                     download_request["user"],
                     download_request["title"],
                     download_request.get("ip_address", ""),
+                    download_request.get("device_id", ""),
                 )
             except Exception as e:
                 logging.error(f"Error processing download: {e}")
@@ -244,6 +259,7 @@ class DownloadManager:
         user: str,
         title: str | None,
         ip_address: str = "",
+        device_id: str = "",
     ) -> int:
         """Execute a video download.
 
@@ -253,6 +269,7 @@ class DownloadManager:
             user: Username to attribute the download to.
             title: Display title (defaults to URL if not provided).
             ip_address: Requesting client's IP, for the audit log.
+            device_id: Requesting device, which owns the song if it's queued.
 
         Returns:
             Return code from the download process (0 = success).
@@ -289,7 +306,7 @@ class DownloadManager:
             rc, output = self._run_download(cmd, video_url)
 
         return self._finish_download(
-            rc, output, video_url, enqueue, user, displayed_title, ip_address
+            rc, output, video_url, enqueue, user, displayed_title, ip_address, device_id
         )
 
     def _run_download(self, cmd: list[str], video_url: str) -> tuple[int | None, str]:
@@ -342,6 +359,7 @@ class DownloadManager:
         user: str,
         displayed_title: str,
         ip_address: str,
+        device_id: str = "",
     ) -> int:
         """Record the outcome of a download that has run out of retries."""
         from flask_babel import _
@@ -369,7 +387,9 @@ class DownloadManager:
                 self.active_download["status"] = "complete"
 
             if self._audit_log:
-                self._audit_log.record(user, _("Downloaded song"), displayed_title, ip_address)
+                self._audit_log.record(
+                    user, _("Downloaded song"), displayed_title, ip_address, device_id
+                )
 
             if enqueue:
                 # MSG: Message shown after the download is completed and queued
@@ -397,7 +417,9 @@ class DownloadManager:
 
             if enqueue:
                 if song_path:
-                    self._queue_manager.enqueue(song_path, user, log_action=False)
+                    self._queue_manager.enqueue(
+                        song_path, user, log_action=False, device_id=device_id
+                    )
                 else:
                     # MSG: Message shown after the download is completed but the adding to queue fails
                     self._events.emit(
