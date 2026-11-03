@@ -5,7 +5,6 @@ songs get requested over and over. Serving the existing copy saves them a
 wait for a file we already hold, and keeps near-duplicates out of the library.
 """
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pytest
