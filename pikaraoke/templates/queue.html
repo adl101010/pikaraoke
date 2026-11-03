@@ -55,7 +55,6 @@
         }
 
         $("#auto-refresh").html(window.queuePage_generateHTML());
-        window.queuePage_renderTotal();
         window.queuePageState.previousQueue = newQueue;
         window.queuePageState.previousNowPlaying = newNowPlaying;
 
@@ -73,7 +72,7 @@
           });
         }
       }
-      window.queuePage_renderTurn();
+      window.queuePage_renderCountdowns();
     });
   };
 
@@ -95,10 +94,15 @@
     }
   };
 
-  window.queuePage_renderTurn = function() {
+  // The pinned total and the your-turn card, both from the one clock.
+  window.queuePage_renderCountdowns = function() {
+    // This timer outlives SPA navigation, and the home page has a your-turn
+    // card of its own: draw only while this page is the one showing.
+    if (!document.getElementById("auto-refresh")) return;
     var np = window.queuePageState.nowPlaying;
     var duration = np && np.now_playing_duration;
     var remaining = duration ? duration - window.queuePageClock.position : null;
+    window.queuePage_renderTotal(remaining);
     renderYourTurn(document.getElementById("your-turn"), computeYourTurn(window.queuePageState.queue, np, remaining));
   };
 
@@ -106,11 +110,11 @@
   // timer first or they stack and the countdown runs at double speed.
   if (window.queueTurnTimer) clearInterval(window.queueTurnTimer);
   window.queueTurnTimer = setInterval(function() {
-    if (!document.getElementById("your-turn")) return;
+    if (!document.getElementById("auto-refresh")) return;
     var np = window.queuePageState.nowPlaying;
     if (np && np.now_playing && !np.is_paused && np.now_playing_duration) {
       window.queuePageClock.position = Math.min(window.queuePageClock.position + 1, np.now_playing_duration);
-      window.queuePage_renderTurn();
+      window.queuePage_renderCountdowns();
     }
   }, 1000);
 
@@ -192,16 +196,17 @@
   }
 
   // The pinned total. Hidden when there is nothing to add up.
-  window.queuePage_renderTotal = function() {
-    var summary = summarizeQueue(window.queuePageState.queue);
+  // The pinned total: until the queue is empty, counting the song on now.
+  window.queuePage_renderTotal = function(remaining) {
+    var summary = summarizeWithCurrent(window.queuePageState.queue, window.queuePageState.nowPlaying, remaining);
     var time = formatQueueTotal(summary);
     var bar = $("#queue-total-bar");
     if (summary.songs === 0 || !time) {
       bar.addClass("is-hidden");
       return;
     }
-    $("#queue-total-label").text(formatSongCount(summary.songs) + " · " + window.translations.queueTotalLabel);
-    $("#queue-total-time")
+    $("#queue-bar-label").text(formatSongCount(summary.songs) + " · " + window.translations.queueTotalLabel);
+    $("#queue-bar-time")
       .text(time)
       .attr("title", summary.unknown ? window.translations.queueTotalIncomplete : "");
     bar.removeClass("is-hidden");
@@ -498,7 +503,7 @@
   if (window.queueSeekHandler) window.socket.off("seek", window.queueSeekHandler);
   window.queueSeekHandler = function(position) {
     window.queuePageClock.position = position;
-    window.queuePage_renderTurn();
+    window.queuePage_renderCountdowns();
   };
   window.socket.on("seek", window.queueSeekHandler);
   window.queuePageState.previousQueue = null;
@@ -589,8 +594,8 @@
 	class="is-hidden is-flex is-justify-content-space-between is-align-items-baseline px-4 py-3"
 	style="position: sticky; bottom: 10px; z-index: 5; margin-bottom: 20px; border-radius: 10px; background: var(--dark-bg-secondary); border: 1px solid var(--dark-border-light); box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.25)"
 >
-	<span id="queue-total-label" class="has-text-grey-light"></span>
-	<span id="queue-total-time" class="has-text-success is-size-5"></span>
+	<span id="queue-bar-label" class="has-text-grey-light"></span>
+	<span id="queue-bar-time" class="has-text-success is-size-5"></span>
 </div>
 
 {% if admin %}

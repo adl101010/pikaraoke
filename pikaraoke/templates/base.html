@@ -166,6 +166,20 @@
       return { songs: queue.length, seconds: seconds, unknown: unknown };
     }
 
+    // The same, plus whatever is left of the song playing now: how long until
+    // everything in `queue` has been sung. `remaining` is that song's seconds
+    // left, or null if unknown -- then it's counted but flagged, like any
+    // other song whose length isn't known.
+    function summarizeWithCurrent(queue, np, remaining) {
+      var summary = summarizeQueue(queue);
+      if (np && np.now_playing) {
+        summary.songs++;
+        if (typeof remaining === "number" && remaining >= 0) summary.seconds += Math.round(remaining);
+        else summary.unknown++;
+      }
+      return summary;
+    }
+
     function formatSongCount(count) {
       return count === 1
         ? window.translations.songCountOne
@@ -195,13 +209,8 @@
       var mine = queue.filter(function (item) { return item.mine; });
       if (!mine.length) return { state: "none" };
       var index = queue.indexOf(mine[0]);
-      var ahead = queue.slice(0, index);
-      var summary = summarizeQueue(ahead);
-      if (playing) {
-        if (typeof remaining === "number" && remaining >= 0) summary.seconds += Math.round(remaining);
-        else summary.unknown++;
-      }
-      var songsAhead = index + (playing ? 1 : 0);
+      var summary = summarizeWithCurrent(queue.slice(0, index), np, remaining);
+      var songsAhead = summary.songs;
       return {
         // First in the queue means next, whether or not a song is on right now.
         state: index === 0 ? "next" : "ahead",

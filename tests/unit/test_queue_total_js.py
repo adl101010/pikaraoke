@@ -97,6 +97,40 @@ CASES = [
     ("formatSongCount", "1", "1 song"),
     ("formatSongCount", "2", "2 songs"),
     ("formatSongCount", "10", "10 songs"),
+    # summarizeWithCurrent(queue, nowPlaying, secondsLeftOfCurrentSong): the queue total
+    # Nothing playing: just the queue.
+    (
+        "summarizeWithCurrent",
+        "[{duration:100},{duration:200}], {now_playing:null}, null",
+        {"songs": 2, "seconds": 300, "unknown": 0},
+    ),
+    (
+        "summarizeWithCurrent",
+        "[{duration:100}], null, null",
+        {"songs": 1, "seconds": 100, "unknown": 0},
+    ),
+    # A song playing: counted as a song, and what's left of it is added.
+    (
+        "summarizeWithCurrent",
+        f"[{{duration:168}},{{duration:250}}], {PLAYING}, 251",
+        {"songs": 3, "seconds": 669, "unknown": 0},
+    ),
+    # Only the current song: the total is just its remainder.
+    ("summarizeWithCurrent", f"[], {PLAYING}, 95", {"songs": 1, "seconds": 95, "unknown": 0}),
+    # Its length isn't known: still a song, flagged as a minimum, adds nothing.
+    (
+        "summarizeWithCurrent",
+        f"[{{duration:100}}], {PLAYING}, null",
+        {"songs": 2, "seconds": 100, "unknown": 1},
+    ),
+    # Paused or not makes no difference to the sum; the clock just stops feeding it.
+    (
+        "summarizeWithCurrent",
+        "[{duration:100}], {now_playing:'X',is_paused:true}, 40",
+        {"songs": 2, "seconds": 140, "unknown": 0},
+    ),
+    # Fractions of a second from the clock are rounded.
+    ("summarizeWithCurrent", f"[], {PLAYING}, 12.6", {"songs": 1, "seconds": 13, "unknown": 0}),
     # computeYourTurn(queue, nowPlaying, secondsLeftOfCurrentSong)
     # Not queued at all: no card.
     (
@@ -279,7 +313,7 @@ def results() -> list:
     script = f"""
 const window = {{ translations: {{ songCountOne: "1 song", songCountMany: "SONG_COUNT songs" }} }};
 {_helpers_from_template()}
-const fns = {{ formatDuration, formatSongLength, summarizeQueue, formatQueueTotal, formatSongCount, computeYourTurn, formatWait }};
+const fns = {{ formatDuration, formatSongLength, summarizeQueue, formatQueueTotal, formatSongCount, summarizeWithCurrent, computeYourTurn, formatWait }};
 const cases = {cases};
 const out = cases.map((c) => fns[c.fn](...new Function("return [" + c.arg + "]")()));
 console.log(JSON.stringify(out));
@@ -312,6 +346,7 @@ def test_the_helpers_are_still_where_the_test_expects():
         "summarizeQueue",
         "formatQueueTotal",
         "formatSongCount",
+        "summarizeWithCurrent",
         "computeYourTurn",
         "formatWait",
         "renderYourTurn",

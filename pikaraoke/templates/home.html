@@ -57,7 +57,7 @@
 		if (!scrubPaused && scrubDuration && !isScrubbing) {
 			scrubPosition = Math.min(scrubPosition + 1, scrubDuration);
 			renderScrubber();
-			renderYourTurnCard();
+			renderCountdowns();
 		}
 	}, 1000);
 
@@ -65,20 +65,24 @@
 		$.get('{{ url_for("queue.get_queue") }}', function (data) {
 			lastQueue = JSON.parse(data);
 			renderActiveSingers();
-			renderQueueTotal();
-			renderYourTurnCard();
+			renderCountdowns();
 		});
 	}
 
-	// The countdown rides the scrubber's clock, so the two can never disagree.
-	function renderYourTurnCard() {
+	// Both countdowns ride the scrubber's clock, so none of them can disagree.
+	function renderCountdowns() {
+		// The scrubber's timer outlives SPA navigation, and the queue page has a
+		// your-turn card of its own: draw only while this page is the one showing.
+		if (!document.getElementById("queue-total")) return;
 		var remaining = scrubDuration ? scrubDuration - scrubPosition : null;
+		renderQueueTotal(remaining);
 		renderYourTurn(document.getElementById("your-turn"), computeYourTurn(lastQueue, lastNowPlaying, remaining));
 	}
 
-	// How long everything waiting will take, so a glance says whether to settle in.
-	function renderQueueTotal() {
-		var summary = summarizeQueue(lastQueue);
+	// How long until the queue is empty, counting the song on now, so a glance
+	// says whether to settle in.
+	function renderQueueTotal(remaining) {
+		var summary = summarizeWithCurrent(lastQueue, lastNowPlaying, remaining);
 		var time = formatQueueTotal(summary);
 		// Nothing queued, or nothing measured yet: a count with no time would be noise.
 		if (summary.songs === 0 || !time) {
@@ -147,7 +151,7 @@
 		$("#scrubber-row").toggle(!!np.now_playing && scrubDuration > 0);
 		renderScrubber();
 		lastNowPlaying = np;
-		renderYourTurnCard();
+		renderCountdowns();
 
 		if (np.now_playing) {
 			// Ownership is decided server-side (the device cookie is HttpOnly), and
@@ -344,7 +348,7 @@
 			if (isScrubbing) return;
 			scrubPosition = position;
 			renderScrubber();
-			renderYourTurnCard();
+			renderCountdowns();
 		}
 		if (window.homeSeekHandler) {
 			window.socket.off("seek", window.homeSeekHandler);
