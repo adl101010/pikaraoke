@@ -7,10 +7,19 @@
 		window.socket = io({ path: window.pikaraokeConfig.socketioPath });
 	}
 
+	// Fetch the queue alongside: the server pops the next song off the queue
+	// without a queue_update (to spare the queue page a flicker), so on a song
+	// change this is the only word that the song now playing has left it.
+	// Fetched together, the card and total never pair the new song with the
+	// old queue and count it twice.
 	function loadNowPlaying() {
 		console.log("Loading now playing data");
-		$.get('{{ url_for("now_playing.now_playing") }}', function (data) {
-			handleNowPlaying(JSON.parse(data));
+		$.when(
+			$.get('{{ url_for("queue.get_queue") }}'),
+			$.get('{{ url_for("now_playing.now_playing") }}')
+		).done(function (queueRes, npRes) {
+			lastQueue = JSON.parse(queueRes[0]);
+			handleNowPlaying(JSON.parse(npRes[0]));
 		});
 	}
 
