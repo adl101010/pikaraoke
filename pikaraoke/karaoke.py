@@ -73,6 +73,11 @@ class Karaoke:
     qr_code_path: str | None = None
     base_path: str = os.path.dirname(__file__)
     loop_interval: int = 500  # in milliseconds
+    # The song folder can be shared with other servers, which add songs this
+    # one never hears about; a scan of an unchanged folder costs a directory
+    # walk, so look for them every minute.
+    library_rescan_interval: int = 60  # in seconds
+    _last_library_rescan: float = 0.0
     default_logo_path: str = os.path.join(base_path, "static", "images", "logo.png")
     default_bg_music_path: str = os.path.join(base_path, "static", "music")
     default_bg_video_path: str = os.path.join(base_path, "static", "video", "night_sea.mp4")
@@ -322,59 +327,78 @@ class Karaoke:
             logging.info("No existing database found, scanning song directory")
             result = self._scanner.scan(self.download_path)
             self._apply_scan_result(result)
+        self._last_library_rescan = time.monotonic()
 
-    def _apply_scan_result(self, result: ScanResult) -> None:
-        """Update SongList and emit notifications after a scan."""
-        if result.added or result.moved or result.deleted:
+    def _apply_scan_result(self, result: ScanResult, quiet: bool = False) -> None:
+        """Update SongList and emit notifications after a scan.
+
+        A quiet scan only logs: one that runs every minute and picks up another
+        server's download would otherwise toast every guest's phone each time.
+        """
+        changed = result.added or result.moved or result.deleted
+        if changed:
             self.song_manager.songs.update(self.db.get_all_song_paths())
-            parts = [
-                label
-                for count, label in [
-                    (result.added, f"{result.added} added"),
-                    (result.moved, f"{result.moved} moved"),
-                    (result.deleted, f"{result.deleted} removed"),
+            if not quiet:
+                parts = [
+                    label
+                    for count, label in [
+                        (result.added, f"{result.added} added"),
+                        (result.moved, f"{result.moved} moved"),
+                        (result.deleted, f"{result.deleted} removed"),
+                    ]
+                    if count
                 ]
-                if count
-            ]
-            self.events.emit("notification", f"Library updated: {', '.join(parts)}", "success")
+                self.events.emit("notification", f"Library updated: {', '.join(parts)}", "success")
 
         if result.circuit_tripped:
             logging.error(
                 f"Circuit breaker tripped: >50% of songs missing. "
                 f"Drive may be unmounted: {self.download_path}"
             )
-            self.events.emit(
-                "notification",
-                f"Song scan halted: too many songs missing. "
-                f"Check your song directory: {self.download_path}. "
-                "Click 'Sync Now' to retry after fixing.",
-                "danger",
-            )
+            if not quiet:
+                self.events.emit(
+                    "notification",
+                    f"Song scan halted: too many songs missing. "
+                    f"Check your song directory: {self.download_path}. "
+                    "Click 'Sync Now' to retry after fixing.",
+                    "danger",
+                )
             return
 
-        logging.info(f"Scan complete: {result}")
+        if changed or not quiet:
+            logging.info(f"Scan complete: {result}")
 
-    def sync_library(self) -> bool:
+    def sync_library(self, quiet: bool = False) -> bool:
         """Trigger a background library scan.
 
-        Used for both warm startup reconciliation and admin 'Sync Now'.
-        Returns False if a sync is already in progress.
+        Used for warm startup reconciliation, admin 'Sync Now', and (quietly)
+        the scheduled rescan. Returns False if a sync is already in progress.
         """
         if not self._sync_lock.acquire(blocking=False):
             return False
-        self.events.emit("sync_started")
-        thread = threading.Thread(target=self._background_sync, daemon=True)
+        if not quiet:
+            self.events.emit("sync_started")
+        thread = threading.Thread(target=self._background_sync, args=(quiet,), daemon=True)
         thread.start()
         return True
 
-    def _background_sync(self) -> None:
+    def _background_sync(self, quiet: bool = False) -> None:
         try:
-            logging.info(f"Background library scan starting: {self.download_path}")
+            # The scheduled rescan runs every minute; only say so when debugging.
+            log = logging.debug if quiet else logging.info
+            log(f"Background library scan starting: {self.download_path}")
             result = self._scanner.scan(self.download_path)
-            self._apply_scan_result(result)
+            self._apply_scan_result(result, quiet)
         finally:
             self._sync_lock.release()
-            self.events.emit("sync_finished")
+            if not quiet:
+                self.events.emit("sync_finished")
+
+    def _rescan_library_if_due(self) -> None:
+        if time.monotonic() - self._last_library_rescan < self.library_rescan_interval:
+            return
+        self._last_library_rescan = time.monotonic()
+        self.sync_library(quiet=True)
 
     def _load_preferences(self, **cli_overrides: Any) -> None:
         """Load preference-driven attributes from config file.
@@ -564,6 +588,7 @@ class Karaoke:
 
     def handle_run_loop(self) -> None:
         """Handle one iteration of the main run loop with a sleep interval."""
+        self._rescan_library_if_due()
         time.sleep(self.loop_interval / 1000)
 
     def reset_now_playing_notification(self) -> None:

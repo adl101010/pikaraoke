@@ -115,9 +115,11 @@ def client(app):
     return app.test_client()
 
 
-def _karaoke(existing_path=None):
+def _karaoke(existing_path=None, on_disk=None):
     k = MagicMock()
     k.db.get_song_by_youtube_id.return_value = existing_path
+    k.download_path = "/songs"
+    k.song_manager.songs.find_by_id.return_value = on_disk
     k.song_manager.display_name_from_path.return_value = "Bohemian Rhapsody"
     k.queue_manager.enqueue.return_value = [True, "Song added to the queue: Bohemian Rhapsody"]
     return k
@@ -231,6 +233,23 @@ class TestDownloadSkipsWhatWeAlreadyHave:
 
         assert response.get_json()["status"] == "ok"
         k.download_manager.queue_download.assert_called_once()
+
+    @patch("pikaraoke.routes.search.get_karaoke_instance")
+    @patch("pikaraoke.routes.search._", side_effect=lambda x: x)
+    def test_uses_a_file_another_server_just_saved(self, _gettext, get_instance, client):
+        """A shared song folder gains songs before this server's next scan sees them."""
+        k = _karaoke(existing_path=None, on_disk="/songs/Bohemian---dQw4w9WgXcQ.mp4")
+        get_instance.return_value = k
+
+        response = _post(client, queue=True)
+
+        assert response.get_json() == {"status": "already_downloaded", "queued": True}
+        k.download_manager.queue_download.assert_not_called()
+        k.song_manager.songs.find_by_id.assert_called_once_with("/songs", REAL_ID)
+        # Into the library now, so search and browse have it too.
+        k.song_manager.register_download.assert_called_once_with(
+            "/songs/Bohemian---dQw4w9WgXcQ.mp4"
+        )
 
     @patch("pikaraoke.routes.search.get_karaoke_instance")
     @patch("pikaraoke.routes.search._", side_effect=lambda x: x)

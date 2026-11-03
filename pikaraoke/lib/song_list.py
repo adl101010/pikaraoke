@@ -142,16 +142,19 @@ class SongList:
 
         Args:
             directory: The directory to search in.
-            video_id: The YouTube ID to match (searches for "---ID.").
+            video_id: The YouTube ID to match (a name ending "---ID.ext").
 
         Returns:
             The full path to the found song, or None if not found.
         """
-        id_pattern = f"---{video_id}."
+        # The whole stem must end in the ID. A download in progress leaves
+        # pieces like "Title---ID.f137.mp4" beside it, and with a song folder
+        # shared between servers, another server may be partway through one.
+        id_suffix = f"---{video_id}"
         try:
             with os.scandir(directory) as it:
                 for entry in it:
-                    if entry.is_file() and id_pattern in entry.name:
+                    if entry.is_file() and os.path.splitext(entry.name)[0].endswith(id_suffix):
                         file_path = entry.path
                         if self.is_valid_song(file_path):
                             return file_path

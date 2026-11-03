@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import time
@@ -26,6 +27,14 @@ MAX_DOWNLOAD_RETRIES = 2
 # a couple of seconds. Waits 15s then 30s, in the background worker, so a guest
 # waits at most ~45s longer before being told the song isn't coming.
 RETRY_BACKOFF_SECONDS = 15
+
+# The song folder can be shared by several servers, so a download in progress
+# leaves a lock file there naming its video; another server asked for the same
+# video waits for it and uses its file. The holder refreshes the lock as yt-dlp
+# reports progress, so one that goes this long untouched belongs to a server
+# that died mid-download -- it shouldn't hold that song back forever.
+DOWNLOAD_LOCK_STALE_SECONDS = 180
+DOWNLOAD_LOCK_POLL_SECONDS = 2
 
 # Kept on a pending download for the worker, but never shown to guests.
 _PRIVATE_REQUEST_FIELDS = ("ip_address", "device_id")
@@ -97,6 +106,7 @@ class DownloadManager:
         self.active_download: dict | None = None
         self._worker: Greenlet | None = None
         self._is_downloading: bool = False  # Track if a download is currently in progress
+        self._download_lock: str | None = None  # Lock file of the download in progress
 
     def start(self) -> None:
         """Start the download worker greenlet.
@@ -274,9 +284,33 @@ class DownloadManager:
         Returns:
             Return code from the download process (0 = success).
         """
-        from flask_babel import _
-
         displayed_title = title if title else video_url
+
+        video_id = get_youtube_id_from_url(video_url)
+        self._download_lock = self._claim_download(video_id) if video_id else None
+        try:
+            # Another server sharing the folder may have fetched it while this
+            # request waited -- or a second guest here asked for the same song.
+            if video_id and self._song_manager.songs.find_by_id(self._download_path, video_id):
+                logging.info(f"Already downloaded, using the existing file: {displayed_title}")
+                return self._finish_download(
+                    0, "", video_url, enqueue, user, displayed_title, ip_address, device_id
+                )
+            return self._download(video_url, enqueue, user, displayed_title, ip_address, device_id)
+        finally:
+            self._release_download()
+
+    def _download(
+        self,
+        video_url: str,
+        enqueue: bool,
+        user: str,
+        displayed_title: str,
+        ip_address: str,
+        device_id: str,
+    ) -> int:
+        """Run yt-dlp for a video, retrying transient failures, and record the outcome."""
+        from flask_babel import _
 
         # MSG: Message shown when download actually starts (after waiting in queue)
         self._events.emit("notification", _("Downloading video: %s") % displayed_title)
@@ -309,6 +343,59 @@ class DownloadManager:
             rc, output, video_url, enqueue, user, displayed_title, ip_address, device_id
         )
 
+    def _claim_download(self, video_id: str) -> str | None:
+        """Take the lock on downloading this video, waiting while another server holds it.
+
+        Returns the lock file's path, or None if the folder won't take one --
+        then the download goes ahead unguarded, as it did before locks existed.
+        """
+        lock_path = os.path.join(self._download_path, f".pikaraoke-downloading-{video_id}")
+        waiting = False
+        while True:
+            try:
+                os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+                return lock_path
+            except FileExistsError:
+                pass
+            except OSError as e:
+                logging.warning(f"Couldn't create download lock {lock_path}: {e}")
+                return None
+            try:
+                age = time.time() - os.path.getmtime(lock_path)
+            except FileNotFoundError:
+                continue  # Released between the two calls: try again now.
+            if age > DOWNLOAD_LOCK_STALE_SECONDS:
+                logging.warning(f"Taking over an abandoned download lock: {lock_path}")
+                try:
+                    os.remove(lock_path)
+                except FileNotFoundError:
+                    pass  # Someone else took it over first; the next try finds theirs.
+                continue
+            if not waiting:
+                waiting = True
+                logging.info(f"Another server is downloading {video_id}, waiting for it")
+                if self.active_download:
+                    self.active_download["status"] = "waiting"
+            time.sleep(DOWNLOAD_LOCK_POLL_SECONDS)
+
+    def _refresh_download_lock(self) -> None:
+        """Show other servers this download is still alive."""
+        if not self._download_lock:
+            return
+        try:
+            os.utime(self._download_lock)
+        except OSError as e:
+            logging.warning(f"Couldn't refresh download lock {self._download_lock}: {e}")
+
+    def _release_download(self) -> None:
+        if not self._download_lock:
+            return
+        try:
+            os.remove(self._download_lock)
+        except FileNotFoundError:
+            logging.warning(f"Download lock was already gone: {self._download_lock}")
+        self._download_lock = None
+
     def _run_download(self, cmd: list[str], video_url: str) -> tuple[int | None, str]:
         """Run yt-dlp once, streaming progress into active_download."""
         # Use Popen to capture output in real-time
@@ -335,6 +422,7 @@ class DownloadManager:
                 break
             if line:
                 output_buffer.append(line)
+                self._refresh_download_lock()
                 match = progress_regex.search(line)
                 if match and self.active_download:
                     percent = float(match.group(1))

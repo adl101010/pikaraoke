@@ -30,6 +30,8 @@ def song_manager():
     """Create a mock SongManager."""
     mock = MagicMock()
     mock.songs = MagicMock()
+    # Nothing on disk yet, so a download goes ahead.
+    mock.songs.find_by_id.return_value = None
     return mock
 
 
@@ -169,15 +171,16 @@ class TestDownloadManagerExecuteDownload:
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        # Mock find_by_id to return a path
-        song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+        # Not on disk before the download, there after it
+        song_manager.songs.find_by_id.side_effect = [None, "/songs/Artist - Song---dQw4w9WgXcQ.mp4"]
 
         rc = download_manager._execute_download(
             "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "User", "Title"
         )
 
         assert rc == 0
-        song_manager.songs.find_by_id.assert_called_once_with("/songs", "dQw4w9WgXcQ")
+        song_manager.songs.find_by_id.assert_called_with("/songs", "dQw4w9WgXcQ")
+        mock_popen.assert_called_once()
         # add_if_valid is no longer called directly; a "song_downloaded" event is emitted instead
         assert any("Downloaded" in n for n in notifications)
 
@@ -202,8 +205,7 @@ class TestDownloadManagerExecuteDownload:
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        # Mock find_by_id
-        song_manager.songs.find_by_id.return_value = "/songs/Song---dQw4w9WgXcQ.mp4"
+        song_manager.songs.find_by_id.side_effect = [None, "/songs/Song---dQw4w9WgXcQ.mp4"]
         song_manager.songs.add_if_valid.return_value = True
 
         download_manager._execute_download(
@@ -315,7 +317,7 @@ class TestDownloadManagerAuditLog:
         mock_process.stdout.readline.side_effect = [""]
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
-        song_manager.songs.find_by_id.return_value = "/songs/Artist - Song---dQw4w9WgXcQ.mp4"
+        song_manager.songs.find_by_id.side_effect = [None, "/songs/Artist - Song---dQw4w9WgXcQ.mp4"]
 
         download_manager_with_audit._execute_download(
             "https://youtube.com/watch?v=dQw4w9WgXcQ", False, "Grace", "Title", "10.0.0.7"
@@ -482,7 +484,7 @@ class TestDownloadManagerSpecialCharacters:
         mock_process.poll.return_value = 0
         mock_popen.return_value = mock_process
 
-        song_manager.songs.find_by_id.return_value = file_path
+        song_manager.songs.find_by_id.side_effect = [None, file_path]
         song_manager.songs.add_if_valid.return_value = True
 
         download_manager._execute_download(

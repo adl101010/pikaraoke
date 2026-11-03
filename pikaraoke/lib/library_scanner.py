@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 
@@ -10,6 +11,15 @@ from pikaraoke.lib.metadata_parser import youtube_id_suffix
 from pikaraoke.lib.song_list import SongList
 
 _VALID_EXTENSIONS = SongList.VALID_EXTENSIONS
+
+# Files with a song's extension that aren't songs. The library rescans itself
+# every minute and its folder may be shared with other servers, so a scan can
+# land mid-download: yt-dlp fetches video and audio as "Title---ID.f137.mp4"
+# and merges through "Title---ID.temp.mp4" before the real file appears. A
+# folder synced to another site gains Syncthing's
+# "Title.sync-conflict-20261103-120000-ABCDEFG.mp4" when both sites save the
+# same file, and keeping one copy of a song is the point.
+_NOT_A_SONG = re.compile(r"\.f\d+$|\.temp$|\.sync-conflict-")
 
 
 def build_song_record(
@@ -103,7 +113,7 @@ class LibraryScanner:
         last_dir = self._db.get_metadata(self._METADATA_KEY)
 
         disk_paths = self._walk_disk(songs_dir)
-        logging.info(f"Scan: found {len(disk_paths)} song(s) on disk")
+        logging.debug(f"Scan: found {len(disk_paths)} song(s) on disk")
         db_paths = set(self._db.get_all_song_paths())
 
         # Detect directory change. If metadata exists, compare directly.
@@ -184,7 +194,8 @@ class LibraryScanner:
         found: set[str] = set()
         for dirpath, _dirnames, filenames in os.walk(songs_dir):
             for filename in filenames:
-                if os.path.splitext(filename)[1].lower() in _VALID_EXTENSIONS:
+                stem, ext = os.path.splitext(filename)
+                if ext.lower() in _VALID_EXTENSIONS and not _NOT_A_SONG.search(stem):
                     found.add(os.path.join(dirpath, filename))
         return found
 

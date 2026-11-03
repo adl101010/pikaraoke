@@ -141,7 +141,12 @@ def _library_copy_of(k, song_url: str) -> str | None:
     # through to a real download beats queueing a song that can't play.
     if existing and os.path.isfile(existing):
         return existing
-    return None
+    # Another server sharing the song folder may have saved it since this
+    # one's last library scan.
+    on_disk = k.song_manager.songs.find_by_id(k.download_path, video_id)
+    if on_disk:
+        k.song_manager.register_download(on_disk)
+    return on_disk
 
 
 def _use_existing_copy(k, song_path: str, user: str, queue: bool):
