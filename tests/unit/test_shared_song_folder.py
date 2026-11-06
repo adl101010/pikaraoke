@@ -34,7 +34,11 @@ class TestDownloadPiecesAreNotSongs:
 
     @pytest.mark.parametrize(
         "piece",
-        [f"Song---{VIDEO_ID}.f137.mp4", f"Song---{VIDEO_ID}.f140.mp4", f"Song---{VIDEO_ID}.temp.mp4"],
+        [
+            f"Song---{VIDEO_ID}.f137.mp4",
+            f"Song---{VIDEO_ID}.f140.mp4",
+            f"Song---{VIDEO_ID}.temp.mp4",
+        ],
         ids=["video_stream", "audio_stream", "merge_output"],
     )
     def test_find_by_id_ignores_a_download_in_progress(self, tmp_path, piece):

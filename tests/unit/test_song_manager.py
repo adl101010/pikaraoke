@@ -1,10 +1,12 @@
 """Unit tests for SongManager."""
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
+from pikaraoke.lib.library_scanner import LibraryScanner
 from pikaraoke.lib.song_manager import SongManager
 
 
@@ -252,3 +254,91 @@ class TestDBCoordination:
         sm.register_download(_native(song))
         assert _native(song) in sm.songs
         mock_db.insert_songs.assert_called_once()
+
+
+class TestTypedNames:
+    """Names typed on the Edit Song page are shown exactly as typed."""
+
+    GUIDE = "Yuuri - Betelgeuse (Romaji Karaoke with Guide Melody)---aaaaaaaaaaa"
+    NO_GUIDE = "Yuuri - Betelgeuse (No Guide Melody)---bbbbbbbbbbb"
+
+    def _manager(self, folder, mock_db):
+        return SongManager(str(folder), db=mock_db, get_title_tidy=lambda: True)
+
+    def _song(self, folder, sm, stem):
+        song = folder / f"{stem}.mp4"
+        song.write_text("fake")
+        sm.songs.add_if_valid(_native(song))
+        return song
+
+    def test_typed_name_skips_title_cleanup(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        song = self._song(tmp_path, sm, "Yuuri - Betelgeuse---bbbbbbbbbbb")
+        new_path = sm.rename(_native(song), self.NO_GUIDE, typed_by_hand=True)
+        assert sm.display_name_from_path(new_path) == "Yuuri - Betelgeuse (No Guide Melody)"
+
+    def test_other_songs_are_still_cleaned_up(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        typed = self._song(tmp_path, sm, "Something---ccccccccccc")
+        sm.rename(_native(typed), self.NO_GUIDE, typed_by_hand=True)
+        untouched = self._song(tmp_path, sm, self.GUIDE)
+        assert sm.display_name_from_path(_native(untouched)) == "Yuuri - Betelgeuse"
+
+    def test_rename_by_other_means_leaves_the_name_to_cleanup(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        song = self._song(tmp_path, sm, "Old---bbbbbbbbbbb")
+        new_path = sm.rename(_native(song), self.NO_GUIDE)
+        assert sm.display_name_from_path(new_path) == "Yuuri - Betelgeuse"
+
+    def test_another_server_sharing_the_folder_sees_it(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        other = self._manager(tmp_path, mock_db)
+        # The other server has already read the (empty) list once.
+        assert other.display_name_from_path(_native(tmp_path / f"{self.GUIDE}.mp4")) == (
+            "Yuuri - Betelgeuse"
+        )
+        song = self._song(tmp_path, sm, "Old---aaaaaaaaaaa")
+        new_path = sm.rename(_native(song), self.GUIDE, typed_by_hand=True)
+        assert other.display_name_from_path(new_path) == (
+            "Yuuri - Betelgeuse (Romaji Karaoke with Guide Melody)"
+        )
+
+    def test_renaming_a_typed_song_again_keeps_it_as_typed(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        song = self._song(tmp_path, sm, "Old---bbbbbbbbbbb")
+        typed = sm.rename(_native(song), self.NO_GUIDE, typed_by_hand=True)
+        renamed = sm.rename(typed, "Yuuri - Betelgeuse (Off Vocal)---bbbbbbbbbbb")
+        assert sm.display_name_from_path(renamed) == "Yuuri - Betelgeuse (Off Vocal)"
+        names = (tmp_path / ".pikaraoke-typed-names").read_text(encoding="utf-8").splitlines()
+        assert names == ["Yuuri - Betelgeuse (Off Vocal)---bbbbbbbbbbb"]
+
+    def test_delete_forgets_the_name(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        song = self._song(tmp_path, sm, "Old---bbbbbbbbbbb")
+        typed = sm.rename(_native(song), self.NO_GUIDE, typed_by_hand=True)
+        sm.delete(typed)
+        assert (tmp_path / ".pikaraoke-typed-names").read_text(encoding="utf-8") == ""
+
+    def test_never_writes_into_a_hard_linked_copy(self, tmp_path, mock_db):
+        # testkar's song folder hard-links production's files.
+        production = tmp_path / "production"
+        test = tmp_path / "test"
+        production.mkdir()
+        test.mkdir()
+        (production / ".pikaraoke-typed-names").write_text(f"{self.GUIDE}\n", encoding="utf-8")
+        os.link(production / ".pikaraoke-typed-names", test / ".pikaraoke-typed-names")
+
+        sm = self._manager(test, mock_db)
+        song = self._song(test, sm, "Old---bbbbbbbbbbb")
+        sm.rename(_native(song), self.NO_GUIDE, typed_by_hand=True)
+
+        assert (production / ".pikaraoke-typed-names").read_text(encoding="utf-8") == (
+            f"{self.GUIDE}\n"
+        )
+
+    def test_typed_names_file_is_not_a_song(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        song = self._song(tmp_path, sm, "Old---bbbbbbbbbbb")
+        sm.rename(_native(song), self.NO_GUIDE, typed_by_hand=True)
+        scanner = LibraryScanner(mock_db)
+        assert scanner._walk_disk(str(tmp_path)) == {_native(tmp_path / f"{self.NO_GUIDE}.mp4")}

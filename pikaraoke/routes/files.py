@@ -254,7 +254,7 @@ def rename_file(form):
             )
         else:
             try:
-                k.song_manager.rename(old_name, new_name_full)
+                k.song_manager.rename(old_name, new_name_full, typed_by_hand=True)
             except OSError as e:
                 logging.error(f"Error renaming file: {e}")
                 flash(

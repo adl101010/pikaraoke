@@ -16,12 +16,22 @@ from pikaraoke.lib.song_list import SongList
 # Characters illegal in Windows filenames
 _WINDOWS_ILLEGAL_CHARS = re.compile(r'[<>:"/\\|?*]')
 
+# Names someone typed on the Edit Song page, one filename (without extension)
+# per line. Title cleanup leaves these alone: "(No Guide Melody)" is what tells
+# two videos of the same song apart. Kept in the song folder rather than the
+# database so every server sharing the folder sees them.
+TYPED_NAMES_FILE = ".pikaraoke-typed-names"
+
 
 def sanitize_filename(name: str) -> str:
     """Remove characters that are illegal in filenames on the current platform."""
     if is_windows():
         name = _WINDOWS_ILLEGAL_CHARS.sub("-", name)
     return name.strip()
+
+
+def _stem(file_path: str) -> str:
+    return os.path.splitext(os.path.basename(file_path))[0]
 
 
 class SongManager:
@@ -41,6 +51,7 @@ class SongManager:
         self.songs = SongList()
         self._db = db
         self._get_title_tidy = get_title_tidy
+        self._typed_names_cache: tuple[tuple[int, int], frozenset[str]] | None = None
 
     @staticmethod
     def filename_from_path(
@@ -69,7 +80,46 @@ class SongManager:
     def display_name_from_path(self, file_path: str, remove_youtube_id: bool = True) -> str:
         """Extract display name from path, respecting the enable_title_tidy preference."""
         tidy = self._get_title_tidy() if self._get_title_tidy else True
+        if tidy and _stem(file_path) in self._typed_names():
+            tidy = False
         return self.filename_from_path(file_path, remove_youtube_id=remove_youtube_id, tidy=tidy)
+
+    def _typed_names_path(self) -> str:
+        return os.path.join(self.download_path, TYPED_NAMES_FILE)
+
+    def _typed_names(self) -> frozenset[str]:
+        """The names typed by hand, re-read only when another server changed them."""
+        path = self._typed_names_path()
+        try:
+            stat = os.stat(path)
+        except FileNotFoundError:
+            return frozenset()
+        version = (stat.st_mtime_ns, stat.st_size)
+        if self._typed_names_cache and self._typed_names_cache[0] == version:
+            return self._typed_names_cache[1]
+        try:
+            with open(path, encoding="utf-8") as f:
+                names = frozenset(line.rstrip("\n") for line in f if line.strip())
+        except OSError as e:
+            logging.warning(f"Couldn't read {path}: {e}")
+            return frozenset()
+        self._typed_names_cache = (version, names)
+        return names
+
+    def _save_typed_names(self, names: frozenset[str]) -> None:
+        # Written aside and swapped in, never edited in place: a test server's
+        # song folder can hard-link production's files, and an in-place write
+        # would change production's copy too.
+        path = self._typed_names_path()
+        temp_path = f"{path}.{os.getpid()}.tmp"
+        try:
+            with open(temp_path, "w", encoding="utf-8") as f:
+                f.writelines(f"{name}\n" for name in sorted(names))
+            os.replace(temp_path, path)
+        except OSError as e:
+            logging.warning(f"Couldn't save typed song names to {path}: {e}")
+            with contextlib.suppress(OSError):
+                os.remove(temp_path)
 
     def get_duration(self, file_path: str) -> int | None:
         """A song's length in seconds, measured once and then remembered.
@@ -137,15 +187,20 @@ class SongManager:
         for companion in companions:
             with contextlib.suppress(FileNotFoundError):
                 os.remove(companion)
+        typed = self._typed_names()
+        if _stem(song_path) in typed:
+            self._save_typed_names(typed - {_stem(song_path)})
         self.songs.remove(song_path)
         self._db.delete_by_path(song_path)
 
-    def rename(self, song_path: str, new_name: str) -> str:
+    def rename(self, song_path: str, new_name: str, typed_by_hand: bool = False) -> str:
         """Rename a song on disk, in SongList, and in DB. Returns new path.
 
         Args:
             song_path: Full path to the current song file.
             new_name: New filename (without extension).
+            typed_by_hand: Someone typed this name, so title cleanup must show
+                it as is. A song already typed by hand keeps that either way.
         """
         if not self._is_within_download_path(song_path):
             raise OSError(f"Refusing to rename path outside the song library: {song_path}")
@@ -160,6 +215,10 @@ class SongManager:
             os.rename(companion, os.path.join(self.download_path, new_name + companion_ext))
         self.songs.rename(song_path, new_path)
         self._db.update_path(song_path, new_path)
+        typed = self._typed_names()
+        old_stem = _stem(song_path)
+        if typed_by_hand or old_stem in typed:
+            self._save_typed_names((typed - {old_stem}) | {new_name})
         return new_path
 
     def register_download(self, song_path: str) -> None:
