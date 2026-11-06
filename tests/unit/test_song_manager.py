@@ -342,3 +342,10 @@ class TestTypedNames:
         sm.rename(_native(song), self.NO_GUIDE, typed_by_hand=True)
         scanner = LibraryScanner(mock_db)
         assert scanner._walk_disk(str(tmp_path)) == {_native(tmp_path / f"{self.NO_GUIDE}.mp4")}
+
+    def test_keep_name_as_typed_without_renaming(self, tmp_path, mock_db):
+        sm = self._manager(tmp_path, mock_db)
+        song = self._song(tmp_path, sm, self.NO_GUIDE)
+        sm.keep_name_as_typed(_native(song))
+        assert song.exists()
+        assert sm.display_name_from_path(_native(song)) == "Yuuri - Betelgeuse (No Guide Melody)"

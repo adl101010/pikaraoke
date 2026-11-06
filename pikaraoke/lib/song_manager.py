@@ -221,6 +221,12 @@ class SongManager:
             self._save_typed_names((typed - {old_stem}) | {new_name})
         return new_path
 
+    def keep_name_as_typed(self, song_path: str) -> None:
+        """Mark a song's current name as typed by hand, without renaming it."""
+        typed = self._typed_names()
+        if _stem(song_path) not in typed:
+            self._save_typed_names(typed | {_stem(song_path)})
+
     def register_download(self, song_path: str) -> None:
         """Register a newly downloaded song in SongList and DB."""
         self.songs.add_if_valid(song_path)

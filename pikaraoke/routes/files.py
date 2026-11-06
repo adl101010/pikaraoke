@@ -241,6 +241,12 @@ def rename_file(form):
             _("Error: Can't edit this song because it is in the current queue: ") + old_name,
             "is-danger",
         )
+    elif new_name_full == os.path.splitext(os.path.basename(old_name))[0]:
+        # Saved unchanged: the name is already what they want to see, so title
+        # cleanup must stop shortening it.
+        k.song_manager.keep_name_as_typed(old_name)
+        # MSG: Message shown after saving a song's name without changing it.
+        flash(_("Saved: %s") % new_name, "is-success")
     else:
         file_extension = os.path.splitext(old_name)[1]
         if os.path.isfile(
