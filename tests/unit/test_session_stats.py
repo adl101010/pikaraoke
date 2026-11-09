@@ -73,14 +73,13 @@ class TestComputeAllSessions:
         sessions = compute_all_sessions(events)
         assert sessions[0].singer_count == 2
 
-    def test_top_songs_and_singers_ranked_by_count(self):
+    def test_top_singers_ranked_by_count(self):
         events = [
             _event("/a.mp4", "Alice", "2026-01-01 20:00:00"),
             _event("/a.mp4", "Bob", "2026-01-01 20:05:00"),
             _event("/b.mp4", "Bob", "2026-01-01 20:10:00"),
         ]
         sessions = compute_all_sessions(events)
-        assert sessions[0].top_songs[0] == ("/a.mp4", 2)
         assert sessions[0].top_singers[0] == ("Bob", 2)
 
     def test_setlist_keeps_every_play_in_order(self):

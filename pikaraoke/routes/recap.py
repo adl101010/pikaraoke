@@ -106,15 +106,11 @@ def recap_summary():
     if not session or not is_session_live(session):
         return jsonify({"active": False})
 
-    k = get_karaoke_instance()
-    top_song_path, top_song_count = session.top_songs[0]
     return jsonify(
         {
             "active": True,
             "play_count": session.play_count,
             "singer_count": session.singer_count,
-            "top_song": k.song_manager.display_name_from_path(top_song_path),
-            "top_song_count": top_song_count,
             "top_singer": session.top_singers[0][0] if session.top_singers else None,
         }
     )

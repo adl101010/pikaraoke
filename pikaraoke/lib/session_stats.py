@@ -23,7 +23,6 @@ class SessionRecap:
     singer_count: int
     started_at: str
     ended_at: str
-    top_songs: list[tuple[str, int]]
     top_singers: list[tuple[str, int]]
     songs_by_singer: dict[str, list[tuple[str, int]]]
     # Every play in the order it happened: (file_path, user, played_at).
@@ -32,7 +31,6 @@ class SessionRecap:
 
 
 def _summarize(session_events: list[dict], names: dict[str, str]) -> SessionRecap:
-    song_counts = Counter(e["file_path"] for e in session_events)
     singer_counts = Counter(e["user"] for e in session_events if e["user"])
 
     songs_by_singer: dict[str, Counter] = {}
@@ -46,7 +44,6 @@ def _summarize(session_events: list[dict], names: dict[str, str]) -> SessionReca
         singer_count=len(singer_counts),
         started_at=started_at,
         ended_at=session_events[-1]["played_at"],
-        top_songs=song_counts.most_common(10),
         top_singers=singer_counts.most_common(10),
         songs_by_singer={
             singer: counter.most_common() for singer, counter in songs_by_singer.items()
