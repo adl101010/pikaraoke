@@ -26,11 +26,15 @@ def _get_all_sessions():
     return get_sessions(get_karaoke_instance().db)
 
 
-def _song_list(session):
+def _setlist(session):
     k = get_karaoke_instance()
     return [
-        {"display_name": k.song_manager.display_name_from_path(path), "count": count}
-        for path, count in session.top_songs
+        {
+            "display_name": k.song_manager.display_name_from_path(path),
+            "singer": user,
+            "played_at": played_at,
+        }
+        for path, user, played_at in session.setlist
     ]
 
 
@@ -73,7 +77,7 @@ def recap():
         site_title=site_name,
         title=_("Recap"),
         session=session,
-        top_songs=_song_list(session) if session else [],
+        setlist=_setlist(session) if session else [],
         songs_by_singer=_songs_by_singer_display(session) if session else {},
         live=live,
         is_latest=is_latest,

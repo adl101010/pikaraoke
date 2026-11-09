@@ -20,6 +20,35 @@
 			width: 2.5em;
 			font-size: 0.85em;
 		}
+		/* Tables here lay out with fixed column widths, so every column but the
+		   song gets an explicit one and the song takes whatever is left. */
+		.content table.setlist-table .col-rank,
+		.content table.setlist-table .col-time {
+			white-space: nowrap;
+			font-size: 0.8em;
+			padding-left: 0.3em;
+			padding-right: 0.3em;
+		}
+		.content table.setlist-table .col-rank {
+			width: 2.2em;
+		}
+		.content table.setlist-table .col-time {
+			width: 5.2em;
+		}
+		.content table.setlist-table .col-song,
+		.content table.setlist-table .col-singer {
+			text-align: left;
+		}
+		.content table.setlist-table .col-singer {
+			width: 26%;
+			font-size: 0.9em;
+			overflow-wrap: anywhere;
+		}
+		@media screen and (max-width: 600px) {
+			.setlist-card .card-content {
+				padding: 0.75rem 0.5rem;
+			}
+		}
 	</style>
 {% endblock %}
 
@@ -86,30 +115,50 @@
 		</div>
 	</div>
 
-	<div class="card">
-		<header class="card-header py-3 px-5">
-			<h3 class="m-0">{# MSG: Title for the list of songs sung in this session. #}{% trans %}Songs{% endtrans %}</h3>
+	{% set setlist_preview = 15 %}
+	<div class="card setlist-card">
+		<header class="card-header py-3 px-5 is-align-items-baseline is-justify-content-space-between">
+			<h3 class="m-0">{# MSG: Title for the list of every song sung in this session, in the order they were sung. #}{% trans %}Setlist{% endtrans %}</h3>
+			<span class="is-size-7 has-text-grey">{{ session.started_at|local_clock }} &ndash; {{ session.ended_at|local_clock }}</span>
 		</header>
 		<div class="card-content">
 			<div class="content">
-				<table class="table is-striped is-fullwidth is-narrow recap-stats-table">
+				<table class="table is-striped is-fullwidth is-narrow recap-stats-table setlist-table">
 					<thead>
 						<tr>
 							<th class="col-rank has-text-grey">{% trans %}#{% endtrans %}</th>
-							<th>{% trans %}Song{% endtrans %}</th>
+							{# MSG: Column heading for the time a song was sung. #}
+							<th class="col-time has-text-grey">{% trans %}Time{% endtrans %}</th>
+							<th class="col-song">{% trans %}Song{% endtrans %}</th>
+							<th class="col-singer">{% trans %}Singer{% endtrans %}</th>
 						</tr>
 					</thead>
 					<tbody>
-						{% for entry in top_songs %}
-						<tr>
+						{% for entry in setlist %}
+						<tr{% if loop.index > setlist_preview %} class="setlist-more is-hidden"{% endif %}>
 							<td class="col-rank has-text-grey">{{ loop.index }}</td>
-							<td>
-								{{ entry.display_name }}{% if entry.count > 1 %} <span class="has-text-grey is-size-7">&times;{{ entry.count }}</span>{% endif %}
-							</td>
+							<td class="col-time has-text-grey">{{ entry.played_at|local_clock }}</td>
+							<td class="col-song">{{ entry.display_name }}</td>
+							<td class="col-singer has-text-grey-light">{{ entry.singer }}</td>
 						</tr>
 						{% endfor %}
 					</tbody>
 				</table>
+				{% if setlist|length > setlist_preview %}
+				<button id="setlist-toggle" class="button is-small is-fullwidth"
+					data-show="{# MSG: Button that expands the setlist to every song of the session. #}{% trans count=setlist|length %}Show all {{ count }} songs{% endtrans %}"
+					data-hide="{# MSG: Button that collapses the setlist back to its first few songs. #}{% trans %}Show fewer{% endtrans %}">
+					{% trans count=setlist|length %}Show all {{ count }} songs{% endtrans %}
+				</button>
+				<script>
+					document.getElementById("setlist-toggle").addEventListener("click", function () {
+						const rows = document.querySelectorAll(".setlist-more");
+						const showing = rows[0].classList.contains("is-hidden");
+						rows.forEach(function (row) { row.classList.toggle("is-hidden", !showing); });
+						this.textContent = showing ? this.dataset.hide : this.dataset.show;
+					});
+				</script>
+				{% endif %}
 			</div>
 		</div>
 	</div>

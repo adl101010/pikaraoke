@@ -1,6 +1,6 @@
 """Unit tests for local_time."""
 
-from pikaraoke.lib.local_time import format_local_datetime
+from pikaraoke.lib.local_time import format_local_clock, format_local_datetime
 
 
 def test_empty_input_returns_empty_string():
@@ -32,3 +32,14 @@ def test_falls_back_to_utc_when_tz_unset(monkeypatch):
 def test_falls_back_to_utc_when_tz_invalid(monkeypatch):
     monkeypatch.setenv("TZ", "Not/AZone")
     assert format_local_datetime("2026-07-30 02:30:12") == "2026-07-30 2:30:12AM"
+
+
+def test_clock_shows_only_the_local_time_of_day(monkeypatch):
+    monkeypatch.setenv("TZ", "America/Chicago")
+    assert format_local_clock("2026-07-30 02:30:12") == "9:30 PM"
+    assert format_local_clock("2026-07-30 05:05:00") == "12:05 AM"
+
+
+def test_clock_handles_empty_and_unparseable_input():
+    assert format_local_clock(None) == ""
+    assert format_local_clock("not a timestamp") == "not a timestamp"
